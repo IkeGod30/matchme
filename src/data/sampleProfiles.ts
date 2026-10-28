@@ -1,0 +1,241 @@
+import type { Gender, PartnerRequest, PhysicalPreferences, PhysicalProfile, Profile } from '../types'
+import { emptyRequest } from './attributes'
+
+/** Positional shorthand: height, body type, skin tone, eyes, hair color, hair length, hair texture, facial hair, tattoos. */
+function body(
+  heightCm: number,
+  bodyType: string,
+  skinTone: string,
+  eyeColor: string,
+  hairColor: string,
+  hairLength: string,
+  hairTexture: string,
+  facialHair: string,
+  tattoos: string,
+): PhysicalProfile {
+  return { heightCm, bodyType, skinTone, eyeColor, hairColor, hairLength, hairTexture, facialHair, tattoos }
+}
+
+interface Seed {
+  name: string
+  age: number
+  gender: Gender
+  nationality: string
+  race: string
+  profession: string
+  jobTitle: string
+  city: string
+  country: string
+  physical: PhysicalProfile
+  request: Partial<Omit<PartnerRequest, 'physical'>> & {
+    message: string
+    seeking: Gender[]
+    ages: [number, number]
+    physical?: Partial<PhysicalPreferences>
+  }
+}
+
+const seeds: Seed[] = [
+  {
+    name: 'Amara', age: 29, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Healthcare', jobTitle: 'Paediatric nurse', city: 'Lagos', country: 'Nigeria',
+    physical: body(170, 'Athletic', 'Deep', 'Brown', 'Black', 'Long', 'Coily', 'None', 'A few'),
+    request: {
+      message: "I'm looking for a kind, family-oriented man who is ambitious but knows how to switch off. Faith matters to me, and so does a good sense of humour.",
+      seeking: ['man'], ages: [28, 40], locations: ['Nigeria', 'United Kingdom'], nationalities: ['Nigeria', 'Ghana'],
+      professions: ['Healthcare', 'Engineering', 'Business & finance'],
+      physical: { height: ['Tall', 'Very tall'], facialHair: ['Beard', 'Stubble'] },
+    },
+  },
+  {
+    name: 'Daniel', age: 33, gender: 'man', nationality: 'United States', race: 'White / European descent',
+    profession: 'Engineering', jobTitle: 'Structural engineer', city: 'New York', country: 'United States',
+    physical: body(185, 'Athletic', 'Fair', 'Hazel', 'Brown', 'Short', 'Wavy', 'Beard', 'None'),
+    request: {
+      message: "Someone curious and adventurous who'd rather explore a night market than sit in a fancy restaurant. Bonus points if you can beat me at chess.",
+      seeking: ['woman'], ages: [26, 36], locations: ['United States', 'Canada'],
+      physical: { hairLength: ['Medium', 'Long'] },
+    },
+  },
+  {
+    name: 'Sofia', age: 26, gender: 'woman', nationality: 'Brazil', race: 'Mixed / multiracial',
+    profession: 'Creative arts & design', jobTitle: 'Graphic designer', city: 'São Paulo', country: 'Brazil',
+    physical: body(162, 'Slim', 'Olive', 'Green', 'Red', 'Medium', 'Curly', 'None', 'Many'),
+    request: {
+      message: 'Creative soul wanted — musician, painter, anyone who makes things with their hands. Must love dogs and late-night conversations.',
+      seeking: ['man', 'woman'], ages: [24, 34], professions: ['Creative arts & design', 'Media & communications'],
+      physical: { tattoos: ['A few', 'Many'] },
+    },
+  },
+  {
+    name: 'Marcus', age: 31, gender: 'man', nationality: 'United Kingdom', race: 'Black / African descent',
+    profession: 'Public service & military', jobTitle: 'Firefighter', city: 'London', country: 'United Kingdom',
+    physical: body(190, 'Muscular', 'Brown', 'Brown', 'Black', 'Shaved', 'None', 'Stubble', 'A few'),
+    request: {
+      message: 'Looking for a confident, warm woman who loves the outdoors and wants to build something real. Kids someday is a must for me.',
+      seeking: ['woman'], ages: [25, 35], locations: ['United Kingdom', 'Ireland'],
+      physical: { bodyType: ['Athletic', 'Curvy', 'Slim'], height: ['Petite', 'Average', 'Tall'] },
+    },
+  },
+  {
+    name: 'Priya', age: 35, gender: 'woman', nationality: 'India', race: 'South Asian',
+    profession: 'Technology', jobTitle: 'Data scientist', city: 'Toronto', country: 'Canada',
+    physical: body(158, 'Average', 'Medium', 'Brown', 'Black', 'Long', 'Straight', 'None', 'None'),
+    request: {
+      message: 'An emotionally intelligent man who reads, cooks and values family. I am open to relocating within Canada or the US for the right person.',
+      seeking: ['man'], ages: [32, 45], locations: ['Canada', 'United States'],
+      professions: ['Technology', 'Science & research', 'Education', 'Healthcare'],
+      physical: { height: ['Average', 'Tall', 'Very tall'], tattoos: ['None', 'A few'] },
+    },
+  },
+  {
+    name: 'Leo', age: 28, gender: 'man', nationality: 'Germany', race: 'White / European descent',
+    profession: 'Hospitality & service', jobTitle: 'Bartender', city: 'Berlin', country: 'Germany',
+    physical: body(176, 'Slim', 'Very fair', 'Blue', 'Blonde', 'Medium', 'Wavy', 'Moustache', 'Many'),
+    request: {
+      message: 'A gentle, bearded bear type who likes dancing, cooking together and slow Sundays.',
+      seeking: ['man'], ages: [25, 36], locations: ['Germany', 'Netherlands'],
+      physical: { bodyType: ['Athletic', 'Muscular', 'Average'], facialHair: ['Stubble', 'Beard'] },
+    },
+  },
+  {
+    name: 'Jordan', age: 30, gender: 'nonbinary', nationality: 'Canada', race: 'Mixed / multiracial',
+    profession: 'Science & research', jobTitle: 'Ecologist', city: 'Vancouver', country: 'Canada',
+    physical: body(172, 'Athletic', 'Olive', 'Grey', 'Dyed', 'Short', 'Straight', 'None', 'A few'),
+    request: {
+      message: "Someone outdoorsy and gentle who'll go climbing with me on weekends and talk about everything and nothing.",
+      seeking: ['woman', 'nonbinary', 'man'], ages: [25, 38], locations: ['Canada'],
+    },
+  },
+  {
+    name: 'Grace', age: 41, gender: 'woman', nationality: 'Ireland', race: 'White / European descent',
+    profession: 'Healthcare', jobTitle: 'Veterinarian', city: 'Dublin', country: 'Ireland',
+    physical: body(175, 'Slim', 'Fair', 'Blue', 'Blonde', 'Medium', 'Straight', 'None', 'None'),
+    request: {
+      message: 'A grounded, active man with a good laugh who likes dogs as much as I do. Divorcees very welcome.',
+      seeking: ['man'], ages: [38, 52], locations: ['Ireland', 'United Kingdom'],
+      physical: { height: ['Tall', 'Very tall'], bodyType: ['Slim', 'Athletic', 'Average'] },
+    },
+  },
+  {
+    name: 'Ethan', age: 37, gender: 'man', nationality: 'United States', race: 'White / European descent',
+    profession: 'Education', jobTitle: 'History teacher', city: 'Boston', country: 'United States',
+    physical: body(180, 'Average', 'Fair', 'Green', 'Brown', 'Short', 'Straight', 'Beard', 'None'),
+    request: {
+      message: 'Looking for a thoughtful woman who loves travel, history and good food. Long-distance is fine for the right person.',
+      seeking: ['woman'], ages: [30, 42],
+      physical: { hairColor: ['Brown', 'Black', 'Red'] },
+    },
+  },
+  {
+    name: 'Yuki', age: 27, gender: 'woman', nationality: 'Japan', race: 'East Asian',
+    profession: 'Technology', jobTitle: 'UX researcher', city: 'Tokyo', country: 'Japan',
+    physical: body(160, 'Slim', 'Fair', 'Brown', 'Black', 'Short', 'Straight', 'None', 'A few'),
+    request: {
+      message: 'A creative, quietly confident woman to share ceramics classes and ramen nights with.',
+      seeking: ['woman'], ages: [24, 33], locations: ['Japan', 'South Korea'],
+      physical: { hairLength: ['Medium', 'Long'] },
+    },
+  },
+  {
+    name: 'Mateo', age: 25, gender: 'man', nationality: 'Mexico', race: 'Hispanic / Latino',
+    profession: 'Student', jobTitle: 'Marine biology grad student', city: 'Mexico City', country: 'Mexico',
+    physical: body(174, 'Athletic', 'Medium', 'Amber', 'Black', 'Medium', 'Curly', 'Stubble', 'None'),
+    request: {
+      message: 'Someone who loves the ocean, Sunday markets and spontaneous road trips. Spanish speakers get extra points!',
+      seeking: ['woman', 'nonbinary'], ages: [22, 30], locations: ['Mexico', 'Spain'],
+      physical: { eyeColor: ['Brown', 'Hazel', 'Green'] },
+    },
+  },
+  {
+    name: 'Nia', age: 32, gender: 'woman', nationality: 'Jamaica', race: 'Black / African descent',
+    profession: 'Law', jobTitle: 'Corporate lawyer', city: 'New York', country: 'United States',
+    physical: body(168, 'Curvy', 'Brown', 'Brown', 'Black', 'Medium', 'Coily', 'None', 'None'),
+    request: {
+      message: "A driven, God-fearing man who's settled in his career and ready for marriage. Must love karaoke and Sunday dinners.",
+      seeking: ['man'], ages: [29, 40], locations: ['United States', 'Jamaica'], races: ['Black / African descent'],
+      professions: ['Law', 'Business & finance', 'Healthcare', 'Engineering', 'Technology'],
+      physical: { height: ['Tall', 'Very tall'], facialHair: ['Beard', 'Stubble'], bodyType: ['Athletic', 'Muscular', 'Average'] },
+    },
+  },
+  {
+    name: 'Olivier', age: 45, gender: 'man', nationality: 'France', race: 'White / European descent',
+    profession: 'Creative arts & design', jobTitle: 'Jazz pianist', city: 'Paris', country: 'France',
+    physical: body(182, 'Average', 'Fair', 'Grey', 'Grey', 'Short', 'Wavy', 'Stubble', 'None'),
+    request: {
+      message: 'An elegant, funny woman who loves music, wine and long walks along the river.',
+      seeking: ['woman'], ages: [36, 50], locations: ['France', 'Belgium', 'Switzerland'],
+    },
+  },
+  {
+    name: 'Riley', age: 29, gender: 'nonbinary', nationality: 'Australia', race: 'Mixed / multiracial',
+    profession: 'Creative arts & design', jobTitle: 'Tattoo artist', city: 'Melbourne', country: 'Australia',
+    physical: body(165, 'Plus-size', 'Medium', 'Hazel', 'Dyed', 'Long', 'Wavy', 'None', 'Many'),
+    request: {
+      message: 'Looking for a fellow weirdo with tattoos, a soft heart and strong opinions about pottery glazes.',
+      seeking: ['nonbinary', 'woman'], ages: [24, 35],
+      physical: { tattoos: ['A few', 'Many'] },
+    },
+  },
+  {
+    name: 'Kwame', age: 34, gender: 'man', nationality: 'Ghana', race: 'Black / African descent',
+    profession: 'Business & finance', jobTitle: 'Investment analyst', city: 'Accra', country: 'Ghana',
+    physical: body(183, 'Athletic', 'Deep', 'Brown', 'Black', 'Short', 'Coily', 'Beard', 'None'),
+    request: {
+      message: "A warm, intelligent woman with her own goals — someone who'll travel the world with me and build a home rooted in faith.",
+      seeking: ['woman'], ages: [26, 36], locations: ['Ghana', 'Nigeria', 'United Kingdom', 'United States'],
+      races: ['Black / African descent'],
+      physical: { bodyType: ['Slim', 'Curvy', 'Athletic'], height: ['Average', 'Tall'] },
+    },
+  },
+  {
+    name: 'Layla', age: 30, gender: 'woman', nationality: 'Lebanon', race: 'Middle Eastern / North African',
+    profession: 'Healthcare', jobTitle: 'Dentist', city: 'Dubai', country: 'United Arab Emirates',
+    physical: body(166, 'Slim', 'Olive', 'Hazel', 'Brown', 'Long', 'Wavy', 'None', 'None'),
+    request: {
+      message: 'A respectful, family-oriented man who is established, loves to travel and ideally speaks Arabic or French.',
+      seeking: ['man'], ages: [30, 40], locations: ['United Arab Emirates', 'Lebanon', 'France'],
+      nationalities: ['Lebanon', 'France', 'Canada'],
+      physical: { height: ['Tall', 'Very tall'] },
+    },
+  },
+  {
+    name: 'Min-jun', age: 31, gender: 'man', nationality: 'South Korea', race: 'East Asian',
+    profession: 'Technology', jobTitle: 'Software engineer', city: 'Seoul', country: 'South Korea',
+    physical: body(178, 'Slim', 'Fair', 'Brown', 'Black', 'Short', 'Straight', 'None', 'None'),
+    request: {
+      message: 'Someone kind and curious who enjoys hiking and trying new cafés. Happy to meet someone abroad who would like to live in Seoul.',
+      seeking: ['woman'], ages: [25, 34],
+    },
+  },
+  {
+    name: 'Chloe', age: 28, gender: 'woman', nationality: 'United States', race: 'White / European descent',
+    profession: 'Media & communications', jobTitle: 'Journalist', city: 'Chicago', country: 'United States',
+    physical: body(171, 'Athletic', 'Very fair', 'Blue', 'Red', 'Long', 'Curly', 'None', 'A few'),
+    request: {
+      message: 'Someone who reads the news and the comics, likes running, and wants a partner in crime for life.',
+      seeking: ['man', 'woman'], ages: [26, 38], locations: ['United States'],
+      physical: { height: ['Average', 'Tall', 'Very tall'] },
+    },
+  },
+]
+
+export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
+  const { ages, physical, ...rest } = s.request
+  const base = emptyRequest()
+  return {
+    id: `sample-${i + 1}`,
+    name: s.name,
+    age: s.age,
+    gender: s.gender,
+    city: s.city,
+    country: s.country,
+    nationality: s.nationality,
+    race: s.race,
+    profession: s.profession,
+    jobTitle: s.jobTitle,
+    bio: '',
+    physical: s.physical,
+    request: { ...base, ...rest, ageMin: ages[0], ageMax: ages[1], physical: { ...base.physical, ...physical } },
+  }
+})
