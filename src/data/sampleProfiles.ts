@@ -13,7 +13,54 @@ function body(
   facialHair: string,
   tattoos: string,
 ): PhysicalProfile {
-  return { heightCm, bodyType, skinTone, eyeColor, hairColor, hairLength, hairTexture, facialHair, tattoos }
+  return {
+    heightCm,
+    bodyType,
+    skinTone,
+    eyeColor,
+    hairColor,
+    hairLength,
+    hairTexture,
+    facialHair,
+    tattoos,
+    lips: '',
+    chest: '',
+    bustSize: '',
+    buttSize: '',
+    buttShape: '',
+  }
+}
+
+/** Lips plus gender-specific features (chest for men; bust and bottom for women), by name. */
+const EXTRAS: Record<string, Partial<PhysicalProfile>> = {
+  Amara: { lips: 'Full', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Round' },
+  Daniel: { lips: 'Medium', chest: 'Toned' },
+  Sofia: { lips: 'Full', bustSize: 'Small', buttSize: 'Average', buttShape: 'Heart' },
+  Marcus: { lips: 'Full', chest: 'Muscular' },
+  Priya: { lips: 'Medium', bustSize: 'Medium', buttSize: 'Average', buttShape: 'Heart' },
+  Leo: { lips: 'Thin', chest: 'Lean' },
+  Jordan: { lips: 'Medium' },
+  Grace: { lips: 'Thin', bustSize: 'Small', buttSize: 'Slim', buttShape: 'Square' },
+  Ethan: { lips: 'Medium', chest: 'Lean' },
+  Yuki: { lips: 'Medium', bustSize: 'Small', buttSize: 'Slim', buttShape: 'V-shape' },
+  Mateo: { lips: 'Full', chest: 'Toned' },
+  Nia: { lips: 'Very full', bustSize: 'Large', buttSize: 'Very curvy', buttShape: 'Heart' },
+  Olivier: { lips: 'Thin', chest: 'Broad' },
+  Riley: { lips: 'Full' },
+  Kwame: { lips: 'Full', chest: 'Muscular' },
+  Layla: { lips: 'Full', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Round' },
+  'Min-jun': { lips: 'Medium', chest: 'Lean' },
+  Chloe: { lips: 'Thin', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Round' },
+  Adaeze: { lips: 'Full', bustSize: 'Small', buttSize: 'Average', buttShape: 'Square' },
+  Funmilayo: { lips: 'Full', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Round' },
+  Zainab: { lips: 'Medium', bustSize: 'Small', buttSize: 'Slim', buttShape: 'V-shape' },
+  Chiamaka: { lips: 'Very full', bustSize: 'Large', buttSize: 'Very curvy', buttShape: 'Heart' },
+  Temitope: { lips: 'Full', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Heart' },
+  Ifeoma: { lips: 'Full', bustSize: 'Large', buttSize: 'Round', buttShape: 'Round' },
+  Halima: { lips: 'Medium', bustSize: 'Small', buttSize: 'Average', buttShape: 'Square' },
+  Damilola: { lips: 'Very full', bustSize: 'Small', buttSize: 'Slim', buttShape: 'V-shape' },
+  Ngozi: { lips: 'Full', bustSize: 'Very large', buttSize: 'Very curvy', buttShape: 'Round' },
+  Efe: { lips: 'Full', bustSize: 'Medium', buttSize: 'Round', buttShape: 'Heart' },
 }
 
 interface Seed {
@@ -74,7 +121,12 @@ const seeds: Seed[] = [
     request: {
       message: 'Looking for a confident, warm woman who loves the outdoors and wants to build something real. Kids someday is a must for me.',
       seeking: ['woman'], ages: [25, 35], locations: ['United Kingdom', 'Ireland'],
-      physical: { bodyType: ['Athletic', 'Curvy', 'Slim'], height: ['Petite', 'Average', 'Tall'] },
+      physical: {
+        bodyType: ['Athletic', 'Curvy', 'Slim'],
+        height: ['Petite', 'Average', 'Tall'],
+        buttSize: ['Round', 'Very curvy'],
+        lips: ['Full', 'Very full'],
+      },
     },
   },
   {
@@ -155,7 +207,12 @@ const seeds: Seed[] = [
       message: "A driven, God-fearing man who's settled in his career and ready for marriage. Must love karaoke and Sunday dinners.",
       seeking: ['man'], ages: [29, 40], locations: ['United States', 'Jamaica'], races: ['Black / African descent'],
       professions: ['Law', 'Business & finance', 'Healthcare', 'Engineering', 'Technology'],
-      physical: { height: ['Tall', 'Very tall'], facialHair: ['Beard', 'Stubble'], bodyType: ['Athletic', 'Muscular', 'Average'] },
+      physical: {
+        height: ['Tall', 'Very tall'],
+        facialHair: ['Beard', 'Stubble'],
+        bodyType: ['Athletic', 'Muscular', 'Average'],
+        chest: ['Muscular', 'Broad'],
+      },
     },
   },
   {
@@ -185,7 +242,12 @@ const seeds: Seed[] = [
       message: "A warm, intelligent woman with her own goals — someone who'll travel the world with me and build a home rooted in faith.",
       seeking: ['woman'], ages: [26, 36], locations: ['Ghana', 'Nigeria', 'United Kingdom', 'United States'],
       races: ['Black / African descent'],
-      physical: { bodyType: ['Slim', 'Curvy', 'Athletic'], height: ['Average', 'Tall'] },
+      physical: {
+        bodyType: ['Slim', 'Curvy', 'Athletic'],
+        height: ['Average', 'Tall'],
+        bustSize: ['Medium', 'Large'],
+        buttSize: ['Round', 'Very curvy'],
+      },
     },
   },
   {
@@ -218,7 +280,130 @@ const seeds: Seed[] = [
       physical: { height: ['Average', 'Tall', 'Very tall'] },
     },
   },
+
+  // ---------- Young Nigerian women ----------
+  {
+    name: 'Adaeze', age: 24, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Healthcare', jobTitle: 'House officer (junior doctor)', city: 'Enugu', country: 'Nigeria',
+    physical: body(165, 'Slim', 'Brown', 'Brown', 'Black', 'Long', 'Coily', 'None', 'None'),
+    request: {
+      message: 'I want a patient, God-fearing man who understands that my hours are long and my dreams are big. Must love Igbo highlife and Sunday rice.',
+      seeking: ['man'], ages: [26, 35], locations: ['Nigeria'], nationalities: ['Nigeria'],
+      professions: ['Healthcare', 'Engineering', 'Business & finance', 'Law'],
+      physical: { height: ['Tall', 'Very tall'], chest: ['Toned', 'Muscular'] },
+    },
+  },
+  {
+    name: 'Funmilayo', age: 26, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Technology', jobTitle: 'Product designer at a fintech', city: 'Lagos', country: 'Nigeria',
+    physical: body(168, 'Athletic', 'Deep', 'Brown', 'Black', 'Short', 'Coily', 'None', 'A few'),
+    request: {
+      message: "Looking for a curious, ambitious man who can hold a conversation about anything — tech, Afrobeats, politics, jollof wars. Lagos traffic shouldn't scare you.",
+      seeking: ['man'], ages: [27, 38], locations: ['Lagos', 'Abuja', 'United Kingdom'],
+      professions: ['Technology', 'Entrepreneur', 'Creative arts & design', 'Business & finance'],
+      physical: { height: ['Average', 'Tall', 'Very tall'], facialHair: ['Stubble', 'Beard'] },
+    },
+  },
+  {
+    name: 'Zainab', age: 23, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Law', jobTitle: 'Associate at a law firm', city: 'Abuja', country: 'Nigeria',
+    physical: body(163, 'Slim', 'Brown', 'Amber', 'Black', 'Long', 'Curly', 'None', 'None'),
+    request: {
+      message: 'A respectful, well-mannered man with strong family values and a calm spirit. I love poetry, travel and long drives on a Friday evening.',
+      seeking: ['man'], ages: [25, 34], locations: ['Abuja', 'Kaduna', 'Kano'], nationalities: ['Nigeria'],
+      physical: { tattoos: ['None'], facialHair: ['Beard', 'Moustache'] },
+    },
+  },
+  {
+    name: 'Chiamaka', age: 27, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Engineering', jobTitle: 'Petroleum engineer', city: 'Port Harcourt', country: 'Nigeria',
+    physical: body(172, 'Curvy', 'Deep', 'Brown', 'Black', 'Medium', 'Coily', 'None', 'None'),
+    request: {
+      message: "I'm a confident, driven woman looking for a man who is secure in himself, supports my career and wants to build a home together. Bonus if you can cook pepper soup.",
+      seeking: ['man'], ages: [28, 40], locations: ['Nigeria', 'Ghana'], races: ['Black / African descent'],
+      professions: ['Engineering', 'Business & finance', 'Healthcare', 'Entrepreneur'],
+      physical: { height: ['Tall', 'Very tall'], bodyType: ['Athletic', 'Muscular'] },
+    },
+  },
+  {
+    name: 'Temitope', age: 22, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Student', jobTitle: 'Final-year pharmacy student', city: 'Ibadan', country: 'Nigeria',
+    physical: body(158, 'Average', 'Brown', 'Brown', 'Brown', 'Long', 'Coily', 'None', 'None'),
+    request: {
+      message: 'Someone kind, funny and serious about his future. I love gospel music, amala on Saturdays and planning surprise birthdays.',
+      seeking: ['man'], ages: [23, 30], locations: ['Ibadan', 'Lagos', 'Ogun'],
+      physical: { height: ['Average', 'Tall'], lips: ['Medium', 'Full'] },
+    },
+  },
+  {
+    name: 'Ifeoma', age: 28, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Business & finance', jobTitle: 'Relationship manager at a bank', city: 'Lagos', country: 'Nigeria',
+    physical: body(170, 'Curvy', 'Medium', 'Hazel', 'Black', 'Long', 'Straight', 'None', 'None'),
+    request: {
+      message: 'A mature, financially stable man who is ready for marriage and children in the next few years. Honesty and a good sense of humour are non-negotiable.',
+      seeking: ['man'], ages: [29, 40], locations: ['Lagos', 'Abuja', 'United Kingdom', 'United States'],
+      races: ['Black / African descent'],
+      physical: { height: ['Tall', 'Very tall'], bodyType: ['Athletic', 'Average', 'Muscular'] },
+    },
+  },
+  {
+    name: 'Halima', age: 25, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Education', jobTitle: 'Secondary school science teacher', city: 'Kaduna', country: 'Nigeria',
+    physical: body(160, 'Slim', 'Medium', 'Brown', 'Black', 'Long', 'Wavy', 'None', 'None'),
+    request: {
+      message: 'I am looking for a gentle, devout and hardworking man who values education and family. I enjoy reading, cooking tuwo and volunteering with children.',
+      seeking: ['man'], ages: [26, 36], locations: ['Kaduna', 'Abuja', 'Kano'], nationalities: ['Nigeria'],
+      physical: { tattoos: ['None'] },
+    },
+  },
+  {
+    name: 'Damilola', age: 24, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Creative arts & design', jobTitle: 'Fashion designer (own label)', city: 'Lagos', country: 'Nigeria',
+    physical: body(175, 'Slim', 'Deep', 'Brown', 'Dyed', 'Short', 'Coily', 'None', 'A few'),
+    request: {
+      message: "Creative, stylish and spontaneous — I want a man who isn't afraid of colour and will come with me to every Lagos Fashion Week show.",
+      seeking: ['man'], ages: [24, 34], locations: ['Lagos'],
+      professions: ['Creative arts & design', 'Media & communications', 'Entrepreneur', 'Technology'],
+      physical: { height: ['Tall', 'Very tall'] },
+    },
+  },
+  {
+    name: 'Ngozi', age: 29, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Public service & military', jobTitle: 'Policy analyst', city: 'Abuja', country: 'Nigeria',
+    physical: body(166, 'Plus-size', 'Brown', 'Brown', 'Black', 'Medium', 'Curly', 'None', 'None'),
+    request: {
+      message: 'A thoughtful, well-read man who loves debate, travel and good food. I want a partner, not a project — someone who knows who he is.',
+      seeking: ['man'], ages: [30, 42], locations: ['Abuja', 'Lagos', 'Ghana', 'United Kingdom'],
+      physical: { facialHair: ['Beard', 'Stubble'] },
+    },
+  },
+  {
+    name: 'Efe', age: 26, gender: 'woman', nationality: 'Nigeria', race: 'Black / African descent',
+    profession: 'Media & communications', jobTitle: 'Radio presenter', city: 'Benin City', country: 'Nigeria',
+    physical: body(162, 'Athletic', 'Deep', 'Brown', 'Black', 'Long', 'Coily', 'None', 'None'),
+    request: {
+      message: 'Loud laugh, big heart, bigger playlist. Looking for a confident, playful man who loves music and can dance at least a little.',
+      seeking: ['man'], ages: [26, 36], locations: ['Nigeria'],
+      physical: { height: ['Average', 'Tall', 'Very tall'], chest: ['Toned', 'Muscular', 'Broad'] },
+    },
+  },
 ]
+
+// Licensed photos of AI-generated (non-existent) people, named after the member's first
+// name, e.g. adaeze.jpg or min-jun.png. See src/assets/demo-photos/README.md. Members
+// without a file keep their illustrated portrait.
+const DEMO_PHOTOS = import.meta.glob<string>('../assets/demo-photos/*.{jpg,jpeg,png,webp}', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+
+export const photoSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+
+function demoPhoto(name: string): string | undefined {
+  const slug = photoSlug(name)
+  return Object.entries(DEMO_PHOTOS).find(([path]) => path.split('/').pop()!.replace(/\.\w+$/, '') === slug)?.[1]
+}
 
 export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
   const { ages, physical, ...rest } = s.request
@@ -235,7 +420,9 @@ export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
     profession: s.profession,
     jobTitle: s.jobTitle,
     bio: '',
-    physical: s.physical,
+    photo: demoPhoto(s.name),
+    isDemo: true,
+    physical: { ...s.physical, ...EXTRAS[s.name] },
     request: { ...base, ...rest, ageMin: ages[0], ageMax: ages[1], physical: { ...base.physical, ...physical } },
   }
 })

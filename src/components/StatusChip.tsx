@@ -1,5 +1,5 @@
-import { STATUS_LABELS, type RequestStatus } from '../lib/requests'
-import type { ProposalResponse } from '../types'
+import { PROPOSAL_LABELS, STATUS_LABELS, proposalState, type RequestStatus } from '../lib/requests'
+import type { Proposal } from '../types'
 
 export function StatusChip({ status, audience }: { status: RequestStatus; audience: 'seeker' | 'matchmaker' }) {
   return (
@@ -9,16 +9,11 @@ export function StatusChip({ status, audience }: { status: RequestStatus; audien
   )
 }
 
-const RESPONSE_LABELS: Record<ProposalResponse, string> = {
-  pending: 'Awaiting response',
-  accepted: 'Accepted',
-  declined: 'Declined',
-}
-
-export function ResponseChip({ response }: { response: ProposalResponse }) {
+export function ProposalChip({ proposal }: { proposal: Proposal }) {
+  const state = proposalState(proposal)
   return (
-    <span className="status-chip" data-response={response}>
-      {RESPONSE_LABELS[response]}
+    <span className="status-chip" data-proposal={state}>
+      {PROPOSAL_LABELS[state]}
     </span>
   )
 }

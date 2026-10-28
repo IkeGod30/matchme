@@ -33,8 +33,10 @@ export interface Profile {
   profession: string
   jobTitle: string
   bio: string
-  /** Resized JPEG data URL. Without one, an illustrated portrait is drawn from `physical`. */
+  /** Image URL (uploaded data URL or bundled demo photo). Without one, an illustrated portrait is drawn from `physical`. */
   photo?: string
+  /** Sample member that is not a real person; labelled as such wherever shown. */
+  isDemo?: boolean
   physical: PhysicalProfile
   request: PartnerRequest
 }
@@ -52,7 +54,16 @@ export interface Proposal {
   respondedAt?: number
   /** Seeker's optional comment when accepting or declining. */
   comment?: string
+  /** The proposed person's answer, asked only after the seeker accepts. */
+  candidateResponse?: CandidateResponse
+  candidateRespondedAt?: number
+  candidateComment?: string
+  /** Set once the seeker pays for a mutual match. */
+  paidAt?: number
+  paymentRef?: string
 }
+
+export type CandidateResponse = 'pending' | 'interested' | 'not_interested'
 
 /** A seeker's request to be matched, handled by the matchmaker. */
 export interface MatchRequest {

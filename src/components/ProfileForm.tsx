@@ -1,12 +1,16 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import {
-  BODY_FEATURES,
   GENDERS,
   HEIGHT_MAX_CM,
   HEIGHT_MIN_CM,
   SELF_FEATURES,
+  featureGenders,
   formatHeight,
+  genderNoun,
   heightBand,
+  preferenceFeaturesFor,
+  selfFeaturesFor,
+  wantedOptions,
 } from '../data/attributes'
 import { COUNTRIES, PROFESSIONS, RACES } from '../data/options'
 import { SAMPLE_PROFILES } from '../data/sampleProfiles'
@@ -43,7 +47,9 @@ function validate(step: number, p: Profile): string[] {
     if (!p.profession) errors.push('Choose your profession.')
   }
   if (step === 1) {
-    const missing = SELF_FEATURES.filter((f) => !p.physical[f.key]).map((f) => f.label.toLowerCase())
+    const missing = selfFeaturesFor(p.gender)
+      .filter((f) => !p.physical[f.key])
+      .map((f) => f.label.toLowerCase())
     if (missing.length) errors.push(`Pick a picture for your ${missing.join(', ')}.`)
   }
   if (step === 2) {
@@ -62,6 +68,11 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
   const [step, setStep] = useState(0)
   const [featureIdx, setFeatureIdx] = useState(0)
   const [errors, setErrors] = useState<string[]>([])
+
+  const selfFeatures = selfFeaturesFor(draft.gender)
+  const wizardFeatures = preferenceFeaturesFor(draft.request.seeking)
+  // The seeking list can change after visiting the wizard, so keep the index in range.
+  const wizardIdx = Math.min(featureIdx, wizardFeatures.length - 1)
 
   const update = (patch: Partial<Profile>) => setDraft((d) => ({ ...d, ...patch }))
   const updatePhysical = (patch: Partial<PhysicalProfile>) =>
@@ -91,28 +102,44 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
     const found = validate(step, draft)
     setErrors(found)
     if (found.length) return
-    if (step === WIZARD_STEP && featureIdx < BODY_FEATURES.length - 1) {
-      setFeatureIdx(featureIdx + 1)
+    if (step === WIZARD_STEP && wizardIdx < wizardFeatures.length - 1) {
+      setFeatureIdx(wizardIdx + 1)
       return
     }
     if (step < STEPS.length - 1) {
       goTo(step + 1)
       return
     }
+    // Drop answers for features that no longer apply (e.g. after changing gender or who you seek).
+    const ownKeys = new Set<string>(selfFeatures.map((f) => f.key))
+    const wantedKeys = new Set<string>(wizardFeatures.map((f) => f.key))
     onSave({
       ...draft,
       name: draft.name.trim(),
       city: draft.city.trim(),
       jobTitle: draft.jobTitle.trim(),
       bio: draft.bio.trim(),
-      request: { ...draft.request, message: draft.request.message.trim() },
+      physical: {
+        ...draft.physical,
+        ...Object.fromEntries(SELF_FEATURES.map((f) => [f.key, ownKeys.has(f.key) ? (draft.physical[f.key] ?? '') : ''])),
+      },
+      request: {
+        ...draft.request,
+        message: draft.request.message.trim(),
+        physical: Object.fromEntries(
+          Object.keys(draft.request.physical).map((key) => [
+            key,
+            wantedKeys.has(key) ? draft.request.physical[key as keyof typeof draft.request.physical] : [],
+          ]),
+        ) as typeof draft.request.physical,
+      },
     })
   }
 
   function back() {
-    if (step === WIZARD_STEP && featureIdx > 0) {
+    if (step === WIZARD_STEP && wizardIdx > 0) {
       setErrors([])
-      setFeatureIdx(featureIdx - 1)
+      setFeatureIdx(wizardIdx - 1)
       return
     }
     goTo(step - 1)
@@ -120,7 +147,8 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
 
   // Steps before the current one are always reachable; when editing, any step is.
   const canJumpTo = (i: number) => i < step || (!isNew && i !== step)
-  const feature = BODY_FEATURES[featureIdx]
+  const feature = wizardFeatures[wizardIdx]
+  const featureFor = featureGenders(feature)
 
   return (
     <form className="card form" onSubmit={next} noValidate>
@@ -253,7 +281,7 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
               />
             </span>
           </label>
-          {SELF_FEATURES.map((f) => (
+          {selfFeatures.map((f) => (
             <FeaturePicker
               key={f.key}
               label={f.label}
@@ -348,30 +376,31 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
         <section className="form-section wizard">
           <div className="wizard-head">
             <span className="muted small">
-              Feature {featureIdx + 1} of {BODY_FEATURES.length}
+              Feature {wizardIdx + 1} of {wizardFeatures.length}
             </span>
             <div className="wizard-dots">
-              {BODY_FEATURES.map((f, i) => (
+              {wizardFeatures.map((f, i) => (
                 <button
                   key={f.key}
                   type="button"
                   aria-label={f.label}
-                  aria-current={i === featureIdx}
-                  data-set={draft.request.physical[f.key].length > 0 || undefined}
+                  aria-current={i === wizardIdx}
+                  data-set={wantedOptions(draft.request.physical, f.key).length > 0 || undefined}
                   onClick={() => setFeatureIdx(i)}
                 />
               ))}
             </div>
           </div>
           <h2>{feature.question}</h2>
+          {featureFor && <span className="badge applies">In {genderNoun(featureFor)}</span>}
           <p className="muted">
-            Tap every picture you'd be happy with, or choose <em>No preference</em>.
+            Tap every example you'd be happy with, or choose <em>No preference</em>.
           </p>
           <FeaturePicker
             key={feature.key}
             feature={feature}
             multiple
-            selected={draft.request.physical[feature.key]}
+            selected={wantedOptions(draft.request.physical, feature.key)}
             onChange={(values) =>
               updateRequest({ physical: { ...draft.request.physical, [feature.key]: values } })
             }

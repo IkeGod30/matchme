@@ -37,11 +37,18 @@ function CriteriaRow({ title, criteria }: { title: string; criteria: Criterion[]
 export function MemberLine({ profile }: { profile: Profile }) {
   const gender = GENDERS.find((g) => g.value === profile.gender)?.label
   return (
-    <p className="muted small">
-      {gender} · {profile.jobTitle || profile.profession}
-      <br />
-      {profile.city}, {profile.country} · {profile.nationality} · {profile.race}
-    </p>
+    <>
+      <p className="muted small">
+        {gender} · {profile.jobTitle || profile.profession}
+        <br />
+        {profile.city}, {profile.country} · {profile.nationality} · {profile.race}
+      </p>
+      {profile.isDemo && (
+        <span className="demo-tag" title="Sample member for demonstration. The picture is AI-generated or illustrated.">
+          Demo profile · not a real person
+        </span>
+      )}
+    </>
   )
 }
 

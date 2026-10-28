@@ -1,4 +1,4 @@
-import { BODY_FEATURES, featureValue } from '../data/attributes'
+import { BODY_FEATURES, featureValue, wantedOptions } from '../data/attributes'
 import type { PartnerRequest, Profile } from '../types'
 
 export interface Criterion {
@@ -44,8 +44,11 @@ export function requestFit(req: PartnerRequest, p: Profile): Fit {
   check('Profession', 'Background', req.professions, () => req.professions.includes(p.profession))
 
   for (const feature of BODY_FEATURES) {
-    const wanted = req.physical[feature.key]
-    check(feature.label, 'Body', wanted, () => wanted.includes(featureValue(p.physical, feature.key)))
+    const value = featureValue(p.physical, feature.key)
+    // Skip features that don't apply to this candidate (e.g. bust size for a man).
+    if (!value) continue
+    const wanted = wantedOptions(req.physical, feature.key)
+    check(feature.label, 'Body', wanted, () => wanted.includes(value))
   }
 
   const met = criteria.filter((c) => c.met).length

@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { timeAgo } from '../lib/format'
 import { isMutuallyCompatible, requestFit } from '../lib/matching'
-import { requestStatus } from '../lib/requests'
+import { proposalState, requestStatus } from '../lib/requests'
 import { actions, allMembers, findMember, type AppData } from '../lib/store'
 import type { MatchRequest, Profile } from '../types'
 import { CandidateCard, MemberLine } from './CandidateCard'
 import { PhysicalSummary } from './PhysicalSummary'
 import { Portrait } from './Portrait'
 import { RequestSummary } from './RequestSummary'
-import { ResponseChip, StatusChip } from './StatusChip'
+import { ProposalChip, StatusChip } from './StatusChip'
 
 interface RequestDetailProps {
   request: MatchRequest
@@ -89,6 +89,7 @@ export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
             {request.proposals.map((p) => {
               const candidate = findMember(data, p.candidateId)
               if (!candidate) return null
+              const state = proposalState(p)
               return (
                 <li key={p.id}>
                   <Portrait profile={candidate} size={48} round />
@@ -98,9 +99,51 @@ export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
                     </strong>{' '}
                     <span className="muted small">· sent {timeAgo(p.proposedAt)}</span>
                     {p.note && <p className="small muted">Your note: {p.note}</p>}
-                    {p.comment && <p className="small">“{p.comment}”</p>}
+                    {p.comment && (
+                      <p className="small">
+                        {seeker.name}: “{p.comment}”
+                      </p>
+                    )}
+                    {p.candidateComment && (
+                      <p className="small">
+                        {candidate.name}: “{p.candidateComment}”
+                      </p>
+                    )}
+                    {state === 'checking' && (
+                      <div className="record-answer">
+                        <p className="small">
+                          {seeker.name} said yes. Contact {candidate.name} and record whether they’re interested
+                          {candidate.isDemo ? '' : ' (they can also answer in the app)'}:
+                        </p>
+                        <div className="respond-actions">
+                          <button
+                            type="button"
+                            className="btn ghost small-btn"
+                            onClick={() => actions.recordCandidateResponse(request.id, p.id, 'not_interested')}
+                          >
+                            Not interested
+                          </button>
+                          <button
+                            type="button"
+                            className="btn primary small-btn"
+                            onClick={() => actions.recordCandidateResponse(request.id, p.id, 'interested')}
+                          >
+                            Interested
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {state === 'mutual' && (
+                      <p className="small muted">Both said yes — waiting for {seeker.name} to confirm and pay.</p>
+                    )}
+                    {state === 'paid' && (
+                      <p className="small">
+                        Paid {p.paidAt && timeAgo(p.paidAt)} · ref <code>{p.paymentRef}</code> — share contact details
+                        and arrange the introduction.
+                      </p>
+                    )}
                   </div>
-                  <ResponseChip response={p.response} />
+                  <ProposalChip proposal={p} />
                 </li>
               )
             })}

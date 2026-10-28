@@ -1,5 +1,5 @@
 import { optionNote, type BodyFeature } from '../data/attributes'
-import { FeatureArt } from './FeatureArt'
+import { FeatureImage } from './FeatureImage'
 
 interface FeaturePickerProps {
   feature: BodyFeature
@@ -44,7 +44,7 @@ export function FeaturePicker({ feature, selected, onChange, multiple = false, l
               aria-pressed={selected.includes(option)}
               onClick={() => toggle(option)}
             >
-              <FeatureArt feature={feature.key} option={option} />
+              <FeatureImage feature={feature.key} option={option} />
               <span className="pic-label">{option}</span>
               {note && <span className="pic-note">{note}</span>}
             </button>

@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { timeAgo } from '../lib/format'
 import { STATUS_LABELS, requestStatus, type RequestStatus } from '../lib/requests'
 import { findMember, type AppData } from '../lib/store'
+import { ExampleLibrary } from './ExampleLibrary'
 import { Portrait } from './Portrait'
 import { RequestDetail } from './RequestDetail'
 import { StatusChip } from './StatusChip'
 
 type Filter = RequestStatus | 'all'
-const FILTERS: Filter[] = ['new', 'awaiting', 'responded', 'matched', 'closed', 'all']
+const FILTERS: Filter[] = ['new', 'checking', 'awaiting', 'payment', 'matched', 'responded', 'closed', 'all']
 
-export function MatchmakerDashboard({ data }: { data: AppData }) {
+function RequestQueue({ data }: { data: AppData }) {
   const [filter, setFilter] = useState<Filter>('new')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -70,6 +71,24 @@ export function MatchmakerDashboard({ data }: { data: AppData }) {
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+export function MatchmakerDashboard({ data }: { data: AppData }) {
+  const [section, setSection] = useState<'requests' | 'examples'>('requests')
+
+  return (
+    <div className="stack">
+      <nav className="tabs mm-tabs">
+        <button type="button" aria-current={section === 'requests'} onClick={() => setSection('requests')}>
+          Match requests
+        </button>
+        <button type="button" aria-current={section === 'examples'} onClick={() => setSection('examples')}>
+          Example photos
+        </button>
+      </nav>
+      {section === 'requests' ? <RequestQueue data={data} /> : <ExampleLibrary data={data} />}
     </div>
   )
 }

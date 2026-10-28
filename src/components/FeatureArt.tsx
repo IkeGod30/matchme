@@ -284,8 +284,131 @@ function TattooArt({ amount }: { amount: string }) {
   )
 }
 
+/* ---------- Lips, bust, hips, chest ---------- */
+
+const LIP_FULLNESS: Record<string, [upper: number, lower: number]> = {
+  Thin: [3.5, 5.5],
+  Medium: [6.5, 9.5],
+  Full: [9.5, 13.5],
+  'Very full': [12.5, 17.5],
+}
+
+function LipsArt({ option }: { option: string }) {
+  const [u, l] = LIP_FULLNESS[option] ?? LIP_FULLNESS.Medium
+  return (
+    <>
+      <rect x={8} y={18} width={84} height={64} rx={14} fill={SKIN} />
+      <path
+        d={`M20 50 C28 ${50 - u}, 40 ${50 - u - 2}, 50 ${50 - u + 3} C60 ${50 - u - 2}, 72 ${50 - u}, 80 50 Q50 53 20 50Z`}
+        fill="#a8475a"
+      />
+      <path d={`M20 50 Q50 53 80 50 C73 ${50 + l}, 27 ${50 + l}, 20 50Z`} fill="#bd5a6c" />
+      <path d="M20 50 Q50 53 80 50" fill="none" stroke="#6e2a38" strokeWidth={1.2} />
+      <ellipse cx={50} cy={50 + l * 0.45} rx={9} ry={l * 0.14 + 0.5} fill="#fff" opacity={0.25} />
+    </>
+  )
+}
+
+const BUST_DEPTH: Record<string, number> = { Small: 3, Medium: 7, Large: 11.5, 'Very large': 16 }
+const HIP_DEPTH: Record<string, number> = { Slim: 2, Average: 5.5, Round: 10, 'Very curvy': 14.5 }
+
+/** Side-profile torso silhouette (facing right), used for bust and hips. */
+function ProfileTorso({ bust, hips, focus }: { bust: number; hips: number; focus: 'bust' | 'hips' }) {
+  const d = [
+    'M55 17 Q58 22 62 27',
+    `C${62 + bust} 31, ${62 + bust} 51, 60 56`,
+    'Q57 62 59 67 Q63 74 62 82 L61 98 L39 98 L39 90',
+    `C${39 - hips} 86, ${39 - hips} 68, 41 62`,
+    'Q45 54 42 42 Q38 30 44 21 Q47 19 48 16 Z',
+  ].join(' ')
+  return (
+    <>
+      <ellipse
+        className="focus-ring"
+        cx={focus === 'bust' ? 62 + bust / 2 : 39 - hips / 2}
+        cy={focus === 'bust' ? 42 : 78}
+        rx={14 + (focus === 'bust' ? bust : hips) / 2}
+        ry={17}
+      />
+      <g className="fig">
+        <circle cx={52} cy={9} r={7.5} />
+        <path d={d} />
+      </g>
+    </>
+  )
+}
+
+// Half-widths of the hips (back view) at the upper hip and the fullest lower point.
+const BOTTOM_SHAPES: Record<string, { upper: number; lower: number }> = {
+  Round: { upper: 27, lower: 29 },
+  Heart: { upper: 21, lower: 33 },
+  Square: { upper: 28, lower: 27.5 },
+  'V-shape': { upper: 30, lower: 22 },
+}
+
+/** Back-view hip silhouette in shorts, used for bottom shape. */
+function BottomShapeArt({ option }: { option: string }) {
+  const { upper: a, lower: b } = BOTTOM_SHAPES[option] ?? BOTTOM_SHAPES.Round
+  const square = option === 'Square'
+  const w = 15
+  const t = 21
+  const d = [
+    `M${50 - w} 12 L${50 + w} 12`,
+    square ? `L${50 + a} 32 L${50 + b} 66` : `C${50 + a} 28, ${50 + b} 48, ${50 + b} 62`,
+    `C${50 + b} 76, ${50 + t + 2} 86, ${50 + t} 98 L54 98 L51 82 L49 82 L46 98 L${50 - t} 98`,
+    `C${50 - t - 2} 86, ${50 - b} 76, ${50 - b} ${square ? 66 : 62}`,
+    square ? `L${50 - a} 32 L${50 - w} 12` : `C${50 - b} 48, ${50 - a} 28, ${50 - w} 12`,
+    'Z',
+  ].join(' ')
+  return (
+    <>
+      <path className="fig" d={d} strokeLinejoin="round" />
+      <g className="fig-line" fill="none" strokeWidth={1.6} strokeLinecap="round">
+        <line x1={50 - w - 2} y1={20} x2={50 + w + 2} y2={20} />
+        <path d={`M${50 - t - 3} 84 Q41 88 50 81 Q59 88 ${50 + t + 3} 84`} />
+      </g>
+    </>
+  )
+}
+
+const CHEST_BUILD: Record<string, { s: number; w: number; pecs: boolean; abs: boolean }> = {
+  Lean: { s: 21, w: 15, pecs: false, abs: false },
+  Toned: { s: 26, w: 16, pecs: true, abs: false },
+  Muscular: { s: 31, w: 17, pecs: true, abs: true },
+  Broad: { s: 32, w: 25, pecs: true, abs: false },
+}
+
+function ChestArt({ option }: { option: string }) {
+  const { s, w, pecs, abs } = CHEST_BUILD[option] ?? CHEST_BUILD.Lean
+  const torso = `M${50 - s} 26 Q50 18 ${50 + s} 26 Q${53 + s} 30 ${50 + s} 42 L${50 + w} 76 L${50 + w} 98 L${50 - w} 98 L${50 - w} 76 L${50 - s} 42 Q${47 - s} 30 ${50 - s} 26Z`
+  return (
+    <>
+      <g className="fig">
+        <rect x={44} y={6} width={12} height={18} rx={4} />
+        <path d={torso} />
+      </g>
+      <g className="fig-line" fill="none" strokeWidth={1.6} strokeLinecap="round">
+        {pecs && (
+          <path d={`M50 36 L50 50 M50 50 Q${50 - s * 0.45} 55 ${50 - s * 0.75} 44 M50 50 Q${50 + s * 0.45} 55 ${50 + s * 0.75} 44`} />
+        )}
+        {abs && <path d="M44 62 L56 62 M44 70 L56 70 M44 78 L56 78 M50 56 L50 84" />}
+      </g>
+    </>
+  )
+}
+
 function renderArt(feature: FeatureKey, option: string, dye: string): ReactNode {
   switch (feature) {
+    case 'lips':
+      return <LipsArt option={option} />
+    case 'bustSize':
+      return <ProfileTorso bust={BUST_DEPTH[option] ?? 7} hips={5.5} focus="bust" />
+    case 'buttSize':
+      return <ProfileTorso bust={7} hips={HIP_DEPTH[option] ?? 5.5} focus="hips" />
+    case 'buttShape':
+      return <BottomShapeArt option={option} />
+    case 'chest':
+      return <ChestArt option={option} />
     case 'height':
       return <HeightArt option={option} />
     case 'bodyType':

@@ -1,6 +1,6 @@
-import { BODY_FEATURES, GENDERS } from '../data/attributes'
+import { GENDERS, preferenceFeaturesFor, wantedOptions } from '../data/attributes'
 import type { PartnerRequest } from '../types'
-import { FeatureArt } from './FeatureArt'
+import { FeatureImage } from './FeatureImage'
 
 const listOrOpen = (values: string[]) => (values.length ? values.join(', ') : 'Open to all')
 
@@ -38,8 +38,8 @@ export function RequestSummary({ request }: { request: PartnerRequest }) {
 
       <h4>Desired bodily features</h4>
       <ul className="desired">
-        {BODY_FEATURES.map((feature) => {
-          const wanted = request.physical[feature.key]
+        {preferenceFeaturesFor(request.seeking).map((feature) => {
+          const wanted = wantedOptions(request.physical, feature.key)
           return (
             <li key={feature.key}>
               <span className="desired-label">{feature.label}</span>
@@ -49,7 +49,7 @@ export function RequestSummary({ request }: { request: PartnerRequest }) {
                 <span className="desired-options">
                   {wanted.map((option) => (
                     <span key={option} className="mini-pick">
-                      <FeatureArt feature={feature.key} option={option} size={32} />
+                      <FeatureImage feature={feature.key} option={option} size={32} />
                       {option}
                     </span>
                   ))}

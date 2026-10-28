@@ -30,6 +30,34 @@ export const BODY_FEATURES = [
     options: ['Slim', 'Athletic', 'Average', 'Curvy', 'Muscular', 'Plus-size'],
   },
   {
+    key: 'chest',
+    label: 'Chest & shoulders',
+    question: 'What kind of chest and shoulders do you like?',
+    options: ['Lean', 'Toned', 'Muscular', 'Broad'],
+    appliesTo: ['man'],
+  },
+  {
+    key: 'bustSize',
+    label: 'Bust size',
+    question: 'What bust size do you find attractive?',
+    options: ['Small', 'Medium', 'Large', 'Very large'],
+    appliesTo: ['woman'],
+  },
+  {
+    key: 'buttSize',
+    label: 'Bottom size',
+    question: 'What hip and bottom size do you prefer?',
+    options: ['Slim', 'Average', 'Round', 'Very curvy'],
+    appliesTo: ['woman'],
+  },
+  {
+    key: 'buttShape',
+    label: 'Bottom shape',
+    question: 'Which bottom shape do you find attractive?',
+    options: ['Round', 'Heart', 'Square', 'V-shape'],
+    appliesTo: ['woman'],
+  },
+  {
     key: 'skinTone',
     label: 'Skin tone',
     question: 'Do you have a skin tone preference?',
@@ -40,6 +68,12 @@ export const BODY_FEATURES = [
     label: 'Eye color',
     question: 'Which eye colors catch your attention?',
     options: ['Brown', 'Blue', 'Green', 'Hazel', 'Grey', 'Amber'],
+  },
+  {
+    key: 'lips',
+    label: 'Lips',
+    question: 'What kind of lips do you find attractive?',
+    options: ['Thin', 'Medium', 'Full', 'Very full'],
   },
   {
     key: 'hairColor',
@@ -82,6 +116,32 @@ export const SELF_FEATURES = BODY_FEATURES.filter(
   (f): f is Exclude<BodyFeature, { key: 'height' }> => f.key !== 'height',
 )
 
+/** Genders a feature is specific to, or undefined when it applies to everyone. */
+export function featureGenders(f: BodyFeature): readonly Gender[] | undefined {
+  return 'appliesTo' in f ? f.appliesTo : undefined
+}
+
+/** Features a person of this gender describes about themselves. */
+export function selfFeaturesFor(gender: Gender) {
+  return SELF_FEATURES.filter((f) => featureGenders(f)?.includes(gender) ?? true)
+}
+
+/**
+ * Features worth asking about given who the seeker is interested in. Seeking
+ * non-binary people opens up every gender-specific feature as optional.
+ */
+export function preferenceFeaturesFor(seeking: Gender[]) {
+  return BODY_FEATURES.filter((f) => {
+    const genders = featureGenders(f)
+    return !genders || seeking.some((g) => g === 'nonbinary' || genders.includes(g))
+  })
+}
+
+export function genderNoun(genders: readonly Gender[]): string {
+  const nouns: Record<Gender, string> = { woman: 'women', man: 'men', nonbinary: 'non-binary people' }
+  return genders.map((g) => nouns[g]).join(' & ')
+}
+
 export const HEIGHT_MIN_CM = 140
 export const HEIGHT_MAX_CM = 215
 
@@ -94,12 +154,27 @@ export function heightBand(cm: number): string {
   return HEIGHT_BANDS.find((band) => cm <= band.maxCm)!.label
 }
 
+/** A person's value for a feature; '' when it doesn't apply to them (or predates the feature). */
 export function featureValue(body: PhysicalProfile, key: FeatureKey): string {
-  return key === 'height' ? heightBand(body.heightCm) : body[key]
+  return key === 'height' ? heightBand(body.heightCm) : (body[key] ?? '')
+}
+
+/** Desired options for a feature; tolerates requests saved before the feature existed. */
+export function wantedOptions(prefs: PartnerRequest['physical'], key: FeatureKey): string[] {
+  return prefs[key] ?? []
+}
+
+const SHAPE_NOTES: Record<string, string> = {
+  Round: 'Full, evenly curved',
+  Heart: 'Fuller at the bottom (pear)',
+  Square: 'Straight, even sides',
+  'V-shape': 'Fuller at the top',
 }
 
 export function optionNote(key: FeatureKey, option: string): string | undefined {
-  return key === 'height' ? HEIGHT_BANDS.find((band) => band.label === option)?.note : undefined
+  if (key === 'height') return HEIGHT_BANDS.find((band) => band.label === option)?.note
+  if (key === 'buttShape') return SHAPE_NOTES[option]
+  return undefined
 }
 
 export function emptyPhysical(): PhysicalProfile {
