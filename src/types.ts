@@ -37,6 +37,11 @@ export interface Profile {
   photo?: string
   /** Sample member that is not a real person; labelled as such wherever shown. */
   isDemo?: boolean
+  /**
+   * Opt-in: show a limited public card on the Featured page. Off (private) by default —
+   * otherwise only the member, their matchmaker and people they're matched with see the profile.
+   */
+  publicListing?: boolean
   physical: PhysicalProfile
   request: PartnerRequest
 }

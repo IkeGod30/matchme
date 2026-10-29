@@ -1,6 +1,15 @@
 import { useId, type ReactNode } from 'react'
 import type { FeatureKey } from '../data/attributes'
 import type { PhysicalProfile } from '../types'
+import {
+  BodyTypeArt,
+  BottomShapeArt,
+  BottomSizeArt,
+  BustSizeArt,
+  ChestArt,
+  HeightArt,
+  type FigureSex,
+} from './silhouettes'
 
 // Hand-drawn SVG samples for every option in BODY_FEATURES (viewBox 0 0 100 100).
 
@@ -31,91 +40,6 @@ const EYES: Record<string, string> = {
   Hazel: '#8f7434',
   Grey: '#87939b',
   Amber: '#c88a1c',
-}
-
-/* ---------- Full figure (height, body type) ---------- */
-
-type Build = { shoulder: number; waist: number; hip: number; limb: number }
-
-const BUILDS: Record<string, Build> = {
-  Slim: { shoulder: 9.5, waist: 6, hip: 7.5, limb: 2.2 },
-  Athletic: { shoulder: 16, waist: 8.5, hip: 10, limb: 3.4 },
-  Average: { shoulder: 13, waist: 12, hip: 12.5, limb: 3.6 },
-  Curvy: { shoulder: 12, waist: 7, hip: 18, limb: 4 },
-  Muscular: { shoulder: 20, waist: 10, hip: 11, limb: 5.2 },
-  'Plus-size': { shoulder: 16, waist: 19, hip: 20, limb: 5.8 },
-}
-
-function Figure({ height, build }: { height: number; build: Build }) {
-  const base = 96
-  const cx = 50
-  const k = height / 80
-  const top = base - height
-  const headR = 7 * k
-  const headCy = top + headR
-  const shoulderY = headCy + headR + 4 * k
-  const waistY = top + height * 0.45
-  const hipY = top + height * 0.56
-  const s = build.shoulder * k
-  const w = build.waist * k
-  const h = build.hip * k
-  const l = build.limb * k
-  const hipCtrlY = waistY + (hipY - waistY) * 0.4
-  const torso = [
-    `M${cx - s} ${shoulderY}`,
-    `L${cx + s} ${shoulderY}`,
-    `Q${cx + s} ${(shoulderY + waistY) / 2} ${cx + w} ${waistY}`,
-    `Q${cx + h} ${hipCtrlY} ${cx + h} ${hipY}`,
-    `L${cx - h} ${hipY}`,
-    `Q${cx - h} ${hipCtrlY} ${cx - w} ${waistY}`,
-    `Q${cx - s} ${(shoulderY + waistY) / 2} ${cx - s} ${shoulderY}`,
-    'Z',
-  ].join(' ')
-  const handX = Math.max(s, h) + 3 * k
-
-  return (
-    <g className="fig" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx={cx} cy={headCy} r={headR} />
-      <line x1={cx} y1={headCy} x2={cx} y2={shoulderY} strokeWidth={3.2 * k} />
-      <path d={torso} strokeWidth={l} />
-      {[-1, 1].map((side) => (
-        <g key={side}>
-          <line
-            x1={cx + side * (s - l * 0.4)}
-            y1={shoulderY + l * 0.5}
-            x2={cx + side * handX}
-            y2={hipY + 3 * k}
-            strokeWidth={l * 1.6}
-          />
-          <line
-            x1={cx + side * h * 0.5}
-            y1={hipY - 1}
-            x2={cx + side * (h * 0.5 + k)}
-            y2={base - l}
-            strokeWidth={l * 2.2}
-          />
-        </g>
-      ))}
-    </g>
-  )
-}
-
-const BAND_HEIGHTS: Record<string, number> = { Petite: 54, Average: 66, Tall: 78, 'Very tall': 90 }
-
-function HeightArt({ option }: { option: string }) {
-  const height = BAND_HEIGHTS[option] ?? 66
-  return (
-    <>
-      <g className="guide">
-        <line x1={10} y1={6} x2={10} y2={96} />
-        {[6, 24, 42, 60, 78, 96].map((y) => (
-          <line key={y} x1={10} y1={y} x2={15} y2={y} />
-        ))}
-        <line x1={14} y1={96 - height} x2={88} y2={96 - height} strokeDasharray="3 3" />
-      </g>
-      <Figure height={height} build={BUILDS.Average} />
-    </>
-  )
 }
 
 /* ---------- Head (hair color, hair length, facial hair) ---------- */
@@ -284,7 +208,7 @@ function TattooArt({ amount }: { amount: string }) {
   )
 }
 
-/* ---------- Lips, bust, hips, chest ---------- */
+/* ---------- Lips (body silhouettes live in silhouettes.tsx) ---------- */
 
 const LIP_FULLNESS: Record<string, [upper: number, lower: number]> = {
   Thin: [3.5, 5.5],
@@ -309,110 +233,22 @@ function LipsArt({ option }: { option: string }) {
   )
 }
 
-const BUST_DEPTH: Record<string, number> = { Small: 3, Medium: 7, Large: 11.5, 'Very large': 16 }
-const HIP_DEPTH: Record<string, number> = { Slim: 2, Average: 5.5, Round: 10, 'Very curvy': 14.5 }
-
-/** Side-profile torso silhouette (facing right), used for bust and hips. */
-function ProfileTorso({ bust, hips, focus }: { bust: number; hips: number; focus: 'bust' | 'hips' }) {
-  const d = [
-    'M55 17 Q58 22 62 27',
-    `C${62 + bust} 31, ${62 + bust} 51, 60 56`,
-    'Q57 62 59 67 Q63 74 62 82 L61 98 L39 98 L39 90',
-    `C${39 - hips} 86, ${39 - hips} 68, 41 62`,
-    'Q45 54 42 42 Q38 30 44 21 Q47 19 48 16 Z',
-  ].join(' ')
-  return (
-    <>
-      <ellipse
-        className="focus-ring"
-        cx={focus === 'bust' ? 62 + bust / 2 : 39 - hips / 2}
-        cy={focus === 'bust' ? 42 : 78}
-        rx={14 + (focus === 'bust' ? bust : hips) / 2}
-        ry={17}
-      />
-      <g className="fig">
-        <circle cx={52} cy={9} r={7.5} />
-        <path d={d} />
-      </g>
-    </>
-  )
-}
-
-// Half-widths of the hips (back view) at the upper hip and the fullest lower point.
-const BOTTOM_SHAPES: Record<string, { upper: number; lower: number }> = {
-  Round: { upper: 27, lower: 29 },
-  Heart: { upper: 21, lower: 33 },
-  Square: { upper: 28, lower: 27.5 },
-  'V-shape': { upper: 30, lower: 22 },
-}
-
-/** Back-view hip silhouette in shorts, used for bottom shape. */
-function BottomShapeArt({ option }: { option: string }) {
-  const { upper: a, lower: b } = BOTTOM_SHAPES[option] ?? BOTTOM_SHAPES.Round
-  const square = option === 'Square'
-  const w = 15
-  const t = 21
-  const d = [
-    `M${50 - w} 12 L${50 + w} 12`,
-    square ? `L${50 + a} 32 L${50 + b} 66` : `C${50 + a} 28, ${50 + b} 48, ${50 + b} 62`,
-    `C${50 + b} 76, ${50 + t + 2} 86, ${50 + t} 98 L54 98 L51 82 L49 82 L46 98 L${50 - t} 98`,
-    `C${50 - t - 2} 86, ${50 - b} 76, ${50 - b} ${square ? 66 : 62}`,
-    square ? `L${50 - a} 32 L${50 - w} 12` : `C${50 - b} 48, ${50 - a} 28, ${50 - w} 12`,
-    'Z',
-  ].join(' ')
-  return (
-    <>
-      <path className="fig" d={d} strokeLinejoin="round" />
-      <g className="fig-line" fill="none" strokeWidth={1.6} strokeLinecap="round">
-        <line x1={50 - w - 2} y1={20} x2={50 + w + 2} y2={20} />
-        <path d={`M${50 - t - 3} 84 Q41 88 50 81 Q59 88 ${50 + t + 3} 84`} />
-      </g>
-    </>
-  )
-}
-
-const CHEST_BUILD: Record<string, { s: number; w: number; pecs: boolean; abs: boolean }> = {
-  Lean: { s: 21, w: 15, pecs: false, abs: false },
-  Toned: { s: 26, w: 16, pecs: true, abs: false },
-  Muscular: { s: 31, w: 17, pecs: true, abs: true },
-  Broad: { s: 32, w: 25, pecs: true, abs: false },
-}
-
-function ChestArt({ option }: { option: string }) {
-  const { s, w, pecs, abs } = CHEST_BUILD[option] ?? CHEST_BUILD.Lean
-  const torso = `M${50 - s} 26 Q50 18 ${50 + s} 26 Q${53 + s} 30 ${50 + s} 42 L${50 + w} 76 L${50 + w} 98 L${50 - w} 98 L${50 - w} 76 L${50 - s} 42 Q${47 - s} 30 ${50 - s} 26Z`
-  return (
-    <>
-      <g className="fig">
-        <rect x={44} y={6} width={12} height={18} rx={4} />
-        <path d={torso} />
-      </g>
-      <g className="fig-line" fill="none" strokeWidth={1.6} strokeLinecap="round">
-        {pecs && (
-          <path d={`M50 36 L50 50 M50 50 Q${50 - s * 0.45} 55 ${50 - s * 0.75} 44 M50 50 Q${50 + s * 0.45} 55 ${50 + s * 0.75} 44`} />
-        )}
-        {abs && <path d="M44 62 L56 62 M44 70 L56 70 M44 78 L56 78 M50 56 L50 84" />}
-      </g>
-    </>
-  )
-}
-
-function renderArt(feature: FeatureKey, option: string, dye: string): ReactNode {
+function renderArt(feature: FeatureKey, option: string, dye: string, figure: FigureSex): ReactNode {
   switch (feature) {
     case 'lips':
       return <LipsArt option={option} />
     case 'bustSize':
-      return <ProfileTorso bust={BUST_DEPTH[option] ?? 7} hips={5.5} focus="bust" />
+      return <BustSizeArt option={option} />
     case 'buttSize':
-      return <ProfileTorso bust={7} hips={HIP_DEPTH[option] ?? 5.5} focus="hips" />
+      return <BottomSizeArt option={option} />
     case 'buttShape':
       return <BottomShapeArt option={option} />
     case 'chest':
       return <ChestArt option={option} />
     case 'height':
-      return <HeightArt option={option} />
+      return <HeightArt option={option} sex={figure} />
     case 'bodyType':
-      return <Figure height={86} build={BUILDS[option] ?? BUILDS.Average} />
+      return <BodyTypeArt option={option} sex={figure} />
     case 'skinTone':
       return <SkinToneArt tone={SKIN_TONES[option] ?? SKIN} />
     case 'eyeColor':
@@ -447,12 +283,20 @@ function DyeGradient({ id }: { id: string }) {
 
 const useGradientId = () => `dye${useId().replace(/[^\w-]/g, '')}`
 
-export function FeatureArt({ feature, option, size = 88 }: { feature: FeatureKey; option: string; size?: number }) {
+interface FeatureArtProps {
+  feature: FeatureKey
+  option: string
+  size?: number
+  /** Which body to draw for height and body type (bust, bottom and chest pictures are fixed). */
+  figure?: FigureSex
+}
+
+export function FeatureArt({ feature, option, size = 88, figure = 'female' }: FeatureArtProps) {
   const gradientId = useGradientId()
   return (
     <svg className="feature-art" viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
       <DyeGradient id={gradientId} />
-      {renderArt(feature, option, `url(#${gradientId})`)}
+      {renderArt(feature, option, `url(#${gradientId})`, figure)}
     </svg>
   )
 }

@@ -13,6 +13,7 @@
   --success-soft: #e2f4ea;
   --danger: #c0392b;
   --figure: #8c7d84;
+  --figure-shade: #74666d;
   --guide: #c9bcc1;
   --shadow: 0 1px 2px rgb(36 28 31 / 6%), 0 4px 16px rgb(36 28 31 / 6%);
   --radius: 14px;
@@ -41,6 +42,7 @@
     --success-soft: #19352a;
     --danger: #ff7a6b;
     --figure: #b6a6ae;
+    --figure-shade: #9a8a92;
     --guide: #5a4d5f;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
   }

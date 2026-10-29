@@ -137,6 +137,11 @@ export function preferenceFeaturesFor(seeking: Gender[]) {
   })
 }
 
+/** Which body to draw for height and body-type pictures: male only when every gender involved is a man. */
+export function figureFor(genders: readonly Gender[]): 'female' | 'male' {
+  return genders.length > 0 && genders.every((g) => g === 'man') ? 'male' : 'female'
+}
+
 export function genderNoun(genders: readonly Gender[]): string {
   const nouns: Record<Gender, string> = { woman: 'women', man: 'men', nonbinary: 'non-binary people' }
   return genders.map((g) => nouns[g]).join(' & ')

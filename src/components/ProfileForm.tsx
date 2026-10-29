@@ -5,6 +5,7 @@ import {
   HEIGHT_MIN_CM,
   SELF_FEATURES,
   featureGenders,
+  figureFor,
   formatHeight,
   genderNoun,
   heightBand,
@@ -22,6 +23,7 @@ import { FeaturePicker } from './FeaturePicker'
 import { Portrait } from './Portrait'
 import { RequestSummary } from './RequestSummary'
 import { TagInput } from './TagInput'
+import { VisibilitySetting } from './VisibilitySetting'
 
 const STEPS = ['About you', 'Your body', 'Your request', 'Desired features', 'Review'] as const
 const WIZARD_STEP = 3
@@ -269,7 +271,12 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             request.
           </p>
           <label className="field height-field">
-            <FeatureArt feature="height" option={heightBand(draft.physical.heightCm)} size={72} />
+            <FeatureArt
+              feature="height"
+              option={heightBand(draft.physical.heightCm)}
+              size={72}
+              figure={figureFor([draft.gender])}
+            />
             <span>
               Height <strong>{formatHeight(draft.physical.heightCm)}</strong>
               <input
@@ -286,6 +293,7 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
               key={f.key}
               label={f.label}
               feature={f}
+              figure={figureFor([draft.gender])}
               selected={draft.physical[f.key] ? [draft.physical[f.key]] : []}
               onChange={([value]) => updatePhysical({ [f.key]: value })}
             />
@@ -399,6 +407,7 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
           <FeaturePicker
             key={feature.key}
             feature={feature}
+            figure={figureFor(draft.request.seeking)}
             multiple
             selected={wantedOptions(draft.request.physical, feature.key)}
             onChange={(values) =>
@@ -416,6 +425,7 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             decline. Use the steps above to change anything.
           </p>
           <RequestSummary request={draft.request} />
+          <VisibilitySetting isPublic={!!draft.publicListing} onChange={(publicListing) => update({ publicListing })} />
         </section>
       )}
 

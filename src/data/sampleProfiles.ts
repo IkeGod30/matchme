@@ -398,7 +398,10 @@ const DEMO_PHOTOS = import.meta.glob<string>('../assets/demo-photos/*.{jpg,jpeg,
   import: 'default',
 })
 
-export const photoSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+/** Sample members who opted in to a public listing; everyone else stays private. */
+const FEATURED = new Set(['Funmilayo', 'Daniel', 'Layla', 'Efe', 'Mateo', 'Grace'])
+
+export const photoSlug =(name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
 function demoPhoto(name: string): string | undefined {
   const slug = photoSlug(name)
@@ -422,6 +425,7 @@ export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
     bio: '',
     photo: demoPhoto(s.name),
     isDemo: true,
+    publicListing: FEATURED.has(s.name),
     physical: { ...s.physical, ...EXTRAS[s.name] },
     request: { ...base, ...rest, ageMin: ages[0], ageMax: ages[1], physical: { ...base.physical, ...physical } },
   }

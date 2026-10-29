@@ -65,6 +65,10 @@ const REASONS = [
     title: 'You stay in control',
     body: 'Nothing happens until you accept. Decline with a comment and your matchmaker learns what you really want.',
   },
+  {
+    title: 'Private and confidential',
+    body: 'Unlike informal matchmaking, where your photos and details can be passed around, your profile is never listed publicly. Only you, your matchmaker and the people you’re matched with can see it — unless you ask us to advertise your profile.',
+  },
 ]
 
 // PLACEHOLDER: invented quotes for the prototype. They are labelled as samples on the page.
@@ -110,7 +114,7 @@ const FAQ = [
   },
   {
     q: 'Who sees my photo and profile?',
-    a: 'Your matchmaker, and seekers you are proposed to as a possible match.',
+    a: 'Only you, your matchmaker and the people your matchmaker proposes you to as a match. Your profile is kept confidential and is never shown publicly unless you ask us to advertise it.',
   },
 ]
 
@@ -120,9 +124,10 @@ interface LandingProps {
   ctaLabel: string
   onStart: () => void
   onMatchmaker: () => void
+  onFeatured: () => void
 }
 
-export function Landing({ ctaLabel, onStart, onMatchmaker }: LandingProps) {
+export function Landing({ ctaLabel, onStart, onMatchmaker, onFeatured }: LandingProps) {
   const [demoKey, setDemoKey] = useState<FeatureKey>(DEMO_FEATURES[0])
   const [demoPicks, setDemoPicks] = useState<Record<string, string[]>>({})
   const demoFeature = BODY_FEATURES.find((f) => f.key === demoKey)!
@@ -255,7 +260,7 @@ export function Landing({ ctaLabel, onStart, onMatchmaker }: LandingProps) {
 
       <section className="landing-section">
         <h2>Why a matchmaker?</h2>
-        <div className="reasons">
+        <div className="reasons two-by-two">
           {REASONS.map((r) => (
             <article key={r.title} className="card">
               <h3>{r.title}</h3>
@@ -308,9 +313,14 @@ export function Landing({ ctaLabel, onStart, onMatchmaker }: LandingProps) {
         <span>
           <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
         </span>
-        <button type="button" className="link-btn" onClick={onMatchmaker}>
-          Are you a matchmaker? Open the matchmaker dashboard →
-        </button>
+        <span className="footer-links">
+          <button type="button" className="link-btn" onClick={onFeatured}>
+            See featured members
+          </button>
+          <button type="button" className="link-btn" onClick={onMatchmaker}>
+            Are you a matchmaker? Open the matchmaker dashboard →
+          </button>
+        </span>
       </footer>
     </div>
   )

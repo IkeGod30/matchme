@@ -1,4 +1,4 @@
-import { GENDERS, preferenceFeaturesFor, wantedOptions } from '../data/attributes'
+import { GENDERS, figureFor, preferenceFeaturesFor, wantedOptions } from '../data/attributes'
 import type { PartnerRequest } from '../types'
 import { FeatureImage } from './FeatureImage'
 
@@ -49,7 +49,12 @@ export function RequestSummary({ request }: { request: PartnerRequest }) {
                 <span className="desired-options">
                   {wanted.map((option) => (
                     <span key={option} className="mini-pick">
-                      <FeatureImage feature={feature.key} option={option} size={32} />
+                      <FeatureImage
+                        feature={feature.key}
+                        option={option}
+                        size={32}
+                        figure={figureFor(request.seeking)}
+                      />
                       {option}
                     </span>
                   ))}

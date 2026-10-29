@@ -43,11 +43,16 @@ export function MemberLine({ profile }: { profile: Profile }) {
         <br />
         {profile.city}, {profile.country} · {profile.nationality} · {profile.race}
       </p>
-      {profile.isDemo && (
-        <span className="demo-tag" title="Sample member for demonstration. The picture is AI-generated or illustrated.">
-          Demo profile · not a real person
+      <span className="member-tags">
+        {profile.isDemo && (
+          <span className="demo-tag" title="Sample member for demonstration. The picture is AI-generated or illustrated.">
+            Demo profile · not a real person
+          </span>
+        )}
+        <span className="visibility-tag" data-public={profile.publicListing || undefined}>
+          {profile.publicListing ? 'Featured publicly' : 'Private profile'}
         </span>
-      )}
+      </span>
     </>
   )
 }
@@ -107,7 +112,7 @@ export function CandidateCard({
 
       <details>
         <summary>{profile.name}'s physical profile</summary>
-        <PhysicalSummary physical={profile.physical} met={bodyMet} />
+        <PhysicalSummary physical={profile.physical} gender={profile.gender} met={bodyMet} />
       </details>
 
       {children}

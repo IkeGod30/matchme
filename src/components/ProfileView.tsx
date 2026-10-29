@@ -1,8 +1,10 @@
+import { actions } from '../lib/store'
 import type { Profile } from '../types'
 import { MemberLine } from './CandidateCard'
 import { PhysicalSummary } from './PhysicalSummary'
 import { Portrait } from './Portrait'
 import { RequestSummary } from './RequestSummary'
+import { VisibilitySetting } from './VisibilitySetting'
 
 export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; onEdit: () => void; onDelete: () => void }) {
   return (
@@ -18,8 +20,12 @@ export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; o
           </div>
         </header>
         {profile.bio && <p className="bio">{profile.bio}</p>}
+        <VisibilitySetting
+          isPublic={!!profile.publicListing}
+          onChange={(publicListing) => actions.saveProfile({ ...profile, publicListing })}
+        />
         <h3>My physical profile</h3>
-        <PhysicalSummary physical={profile.physical} />
+        <PhysicalSummary physical={profile.physical} gender={profile.gender} />
       </article>
 
       <article className="card">

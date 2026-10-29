@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FeaturedMembers } from './components/FeaturedMembers'
 import { Landing } from './components/Landing'
 import { MatchmakerDashboard } from './components/MatchmakerDashboard'
 import { ProfileForm } from './components/ProfileForm'
@@ -12,6 +13,7 @@ import type { Profile } from './types'
 import './App.css'
 
 type SeekerView = 'home' | 'profile' | 'edit'
+type PublicScreen = 'home' | 'featured'
 
 function newProfile(): Profile {
   return {
@@ -37,38 +39,47 @@ function App() {
   const [seekerId, setSeekerId] = useState<string | null>(loadSeekerId)
   const [view, setView] = useState<SeekerView>('home')
   const [started, setStarted] = useState(false)
-  // The landing page is the home page: shown on load (except in matchmaker tabs) and via the logo.
-  const [onHome, setOnHome] = useState(() => loadRole() !== 'matchmaker')
+  // Public pages (home/landing and featured members) sit in front of the role-based app.
+  // Home is shown on load, except in tabs switched to the matchmaker role.
+  // The featured page has a shareable link: /#featured.
+  const [screen, setScreen] = useState<PublicScreen | null>(() => {
+    if (window.location.hash === '#featured') return 'featured'
+    return loadRole() === 'matchmaker' ? null : 'home'
+  })
 
   const me = data.profiles.find((p) => p.id === seekerId) ?? null
   const newRequests = data.requests.filter((r) => requestStatus(r) === 'new').length
   // A seeker with no profile who hasn't started onboarding has nowhere else to be.
-  const showLanding = onHome || (role === 'seeker' && !me && !started)
+  const showLanding = screen === 'home' || (screen === null && role === 'seeker' && !me && !started)
+  const showFeatured = screen === 'featured'
+  const inApp = !showLanding && !showFeatured
+
+  function show(next: PublicScreen | null) {
+    setScreen(next)
+    const hash = next === 'featured' ? '#featured' : ''
+    if (window.location.hash !== hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
+    }
+    window.scrollTo({ top: 0 })
+  }
 
   function switchRole(next: Role) {
     saveRole(next)
     setRole(next)
-    setOnHome(false)
-    window.scrollTo({ top: 0 })
-  }
-
-  function goHome() {
-    setOnHome(true)
-    window.scrollTo({ top: 0 })
+    show(null)
   }
 
   function startFromLanding() {
     saveRole('seeker')
     setRole('seeker')
-    setOnHome(false)
     if (me) setView('home')
     else setStarted(true)
-    window.scrollTo({ top: 0 })
+    show(null)
   }
 
   function openSeekerView(next: SeekerView) {
-    setOnHome(false)
     setView(next)
+    show(null)
   }
 
   function handleCreate(profile: Profile) {
@@ -93,32 +104,35 @@ function App() {
     setSeekerId(null)
     setStarted(false)
     setView('home')
-    setOnHome(true)
+    show('home')
   }
 
   return (
     <div className="app">
       <header className="topbar">
-        <button type="button" className="brand" onClick={goHome} aria-label="MatchMe home">
+        <button type="button" className="brand" onClick={() => show('home')} aria-label="MatchMe home">
           <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
         </button>
         <div className="topbar-right">
           <nav className="tabs">
-            <button type="button" aria-current={showLanding} onClick={goHome}>
+            <button type="button" aria-current={showLanding} onClick={() => show('home')}>
               Home
+            </button>
+            <button type="button" aria-current={showFeatured} onClick={() => show('featured')}>
+              Featured
             </button>
             {role === 'seeker' && me && view !== 'edit' && (
               <>
                 <button
                   type="button"
-                  aria-current={!showLanding && view === 'home'}
+                  aria-current={inApp && view === 'home'}
                   onClick={() => openSeekerView('home')}
                 >
                   My matches
                 </button>
                 <button
                   type="button"
-                  aria-current={!showLanding && view === 'profile'}
+                  aria-current={inApp && view === 'profile'}
                   onClick={() => openSeekerView('profile')}
                 >
                   My profile
@@ -129,14 +143,14 @@ function App() {
           <div className="role-switch" role="group" aria-label="View as">
             <button
               type="button"
-              aria-pressed={!showLanding && role === 'seeker'}
+              aria-pressed={inApp && role === 'seeker'}
               onClick={() => (me || started ? switchRole('seeker') : startFromLanding())}
             >
               Seeker
             </button>
             <button
               type="button"
-              aria-pressed={!showLanding && role === 'matchmaker'}
+              aria-pressed={inApp && role === 'matchmaker'}
               onClick={() => switchRole('matchmaker')}
             >
               Matchmaker
@@ -152,22 +166,25 @@ function App() {
             ctaLabel={me ? 'Go to my matches' : 'Request a match'}
             onStart={startFromLanding}
             onMatchmaker={() => switchRole('matchmaker')}
+            onFeatured={() => show('featured')}
           />
         )}
 
-        {!showLanding && role === 'matchmaker' && <MatchmakerDashboard data={data} />}
+        {showFeatured && <FeaturedMembers data={data} meId={me?.id ?? null} onRequestMatch={startFromLanding} />}
 
-        {!showLanding && role === 'seeker' && !me && started && (
+        {inApp && role === 'matchmaker' && <MatchmakerDashboard data={data} />}
+
+        {inApp && role === 'seeker' && !me && started && (
           <ProfileForm initial={newProfile()} isNew onSave={handleCreate} onCancel={() => setStarted(false)} />
         )}
 
-        {!showLanding && role === 'seeker' && me && view === 'edit' && (
+        {inApp && role === 'seeker' && me && view === 'edit' && (
           <ProfileForm initial={me} isNew={false} onSave={handleUpdate} onCancel={() => setView('profile')} />
         )}
-        {!showLanding && role === 'seeker' && me && view === 'home' && (
+        {inApp && role === 'seeker' && me && view === 'home' && (
           <SeekerHome me={me} data={data} onEditRequest={() => setView('profile')} />
         )}
-        {!showLanding && role === 'seeker' && me && view === 'profile' && (
+        {inApp && role === 'seeker' && me && view === 'profile' && (
           <ProfileView profile={me} onEdit={() => setView('edit')} onDelete={handleDelete} />
         )}
       </main>

@@ -78,7 +78,7 @@ export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
         <RequestSummary request={seeker.request} />
         <details>
           <summary>{seeker.name}'s own physical profile</summary>
-          <PhysicalSummary physical={seeker.physical} />
+          <PhysicalSummary physical={seeker.physical} gender={seeker.gender} />
         </details>
       </article>
 
