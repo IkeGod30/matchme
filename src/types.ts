@@ -130,6 +130,8 @@ export interface MatchRequest {
   /** Messages from the matchmaker to the seeker. */
   notes: { at: number; text: string }[]
   proposals: Proposal[]
+  /** Featured members the seeker asked to be matched with by name, from the Featured page. */
+  requestedMembers: { candidateId: string; at: number }[]
   /** Set when the seeker declined everything and asked for another round. */
   moreRequestedAt?: number
   closedAt?: number

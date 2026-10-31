@@ -10,15 +10,18 @@ once a match is mutual.
 ## Two kinds of users
 
 - **Seekers** sign up freely, describe themselves and the partner they want, and accept or
-  decline the matches proposed to them. Screens: `src/components/seeker/`, API: `server/routes/seeker.ts`.
-- **Matchmakers** either apply publicly (landing page → Matchmaker → Apply) or are invited by an
+  decline the matches proposed to them. They can also ask for a specific member from the Featured
+  page ("Request a match with …"); the member is added to their open request (or opens one) and
+  shown to the matchmaker at the top of the candidate list. Screens: `src/components/seeker/`,
+  API: `server/routes/seeker.ts`.
+- **Matchmakers** either apply publicly (header → For matchmakers → Apply) or are invited by an
   existing matchmaker. Applicants can log in but see nothing until a matchmaker approves them in
   Dashboard → Team; invited matchmakers are approved immediately. They take on requests, propose
   matches, keep private team notes, browse all members and manage example photos.
   Screens: `src/components/matchmaker/`, API: `server/routes/matchmaker.ts`.
 
-The landing page and the log-in / sign-up form have a **Seeker | Matchmaker** toggle, so each
-visitor chooses which side they belong to.
+The landing page is written for seekers; matchmakers reach their side through **For matchmakers**
+in the header (or the footer link). The log-in / sign-up form has a **Seeker | Matchmaker** toggle.
 
 Public pages (landing, featured members, login, matchmaker sign-up) are in `src/components/public/`;
 pieces both sides use (pictures, cards, chips) are in `src/components/shared/`.

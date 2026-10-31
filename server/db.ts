@@ -70,6 +70,14 @@ db.exec(`
     payment_ref            TEXT
   );
 
+  -- Featured members a seeker asked to be matched with, by name, from the Featured page.
+  CREATE TABLE IF NOT EXISTS requested_members (
+    request_id   TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+    candidate_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at   INTEGER NOT NULL,
+    PRIMARY KEY (request_id, candidate_id)
+  );
+
   CREATE TABLE IF NOT EXISTS examples (
     key        TEXT PRIMARY KEY,
     photo_file TEXT NOT NULL,

@@ -30,3 +30,32 @@ export function clearProfileDraft(): void {
     // ignore
   }
 }
+
+// A featured member picked before signing up or creating a profile; requested once the
+// seeker has a profile.
+
+const PICK_KEY = 'matchme.featuredPick'
+
+export function loadFeaturedPick(): string | null {
+  try {
+    return localStorage.getItem(PICK_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function saveFeaturedPick(memberId: string): void {
+  try {
+    localStorage.setItem(PICK_KEY, memberId)
+  } catch {
+    // ignore
+  }
+}
+
+export function clearFeaturedPick(): void {
+  try {
+    localStorage.removeItem(PICK_KEY)
+  } catch {
+    // ignore
+  }
+}

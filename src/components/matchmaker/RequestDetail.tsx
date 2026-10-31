@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { timeAgo } from '../../lib/format'
 import { isMutuallyCompatible, requestFit } from '../../lib/matching'
-import { proposalState, requestStatus } from '../../lib/requests'
+import { proposalState, requestStatus, unproposedRequests } from '../../lib/requests'
 import { actions, allMembers, findMember, type AppData, type MatchmakerData } from '../../lib/store'
 import type { MatchRequest, Profile } from '../../types'
 import { CandidateCard, MemberLine } from '../shared/CandidateCard'
@@ -112,14 +112,23 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
   const [message, setMessage] = useState('')
   const [mutualOnly, setMutualOnly] = useState(true)
 
+  // Featured members the seeker asked for by name: always listed, and first.
+  const asked = useMemo(() => new Set(unproposedRequests(request).map((a) => a.candidateId)), [request])
+  const askedMembers = [...asked].map((id) => findMember(data, id)).filter((p): p is Profile => !!p)
+
   const candidates = useMemo(() => {
     const alreadyProposed = new Set(request.proposals.map((p) => p.candidateId))
     return allMembers(data)
       .filter((c) => c.id !== seeker.id && !alreadyProposed.has(c.id))
-      .filter((c) => !mutualOnly || isMutuallyCompatible(seeker, c))
+      .filter((c) => asked.has(c.id) || !mutualOnly || isMutuallyCompatible(seeker, c))
       .map((c) => ({ profile: c, fit: requestFit(seeker.request, c), theirFit: requestFit(c.request, seeker) }))
-      .sort((a, b) => b.fit.score - a.fit.score || b.theirFit.score - a.theirFit.score)
-  }, [data, seeker, request.proposals, mutualOnly])
+      .sort(
+        (a, b) =>
+          Number(asked.has(b.profile.id)) - Number(asked.has(a.profile.id)) ||
+          b.fit.score - a.fit.score ||
+          b.theirFit.score - a.theirFit.score,
+      )
+  }, [data, seeker, request.proposals, mutualOnly, asked])
 
   const pickIds = Object.keys(picks)
 
@@ -171,6 +180,16 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
           <PhysicalSummary physical={seeker.physical} gender={seeker.gender} />
         </details>
       </article>
+
+      {askedMembers.length > 0 && status !== 'closed' && (
+        <article className="card banner">
+          <strong>
+            {seeker.name} asked to be matched with {askedMembers.map((p) => p.name).join(' and ')}
+          </strong>{' '}
+          from the Featured page. They’re at the top of the list below — propose them as usual, and once {seeker.name}{' '}
+          accepts, ask whether the interest is mutual.
+        </article>
+      )}
 
       <InternalNotes request={request} matchmaker={matchmaker} />
 
@@ -278,6 +297,7 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
                     showTheirMessage
                     selected={selected}
                   >
+                    {asked.has(profile.id) && <span className="badge applies">Requested by {seeker.name}</span>}
                     <label className="pick">
                       <input type="checkbox" checked={selected} onChange={() => togglePick(profile.id)} />
                       Propose {profile.name} to {seeker.name}

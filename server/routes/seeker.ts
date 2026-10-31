@@ -14,7 +14,7 @@ import {
   toProfile,
   withMatchmakers,
 } from '../data.ts'
-import { run } from '../db.ts'
+import { run, transaction } from '../db.ts'
 import { fail, optionalText, recordInterest } from '../http.ts'
 import { deletePhoto, savePhoto } from '../photos.ts'
 import { validateProfile } from '../validate.ts'
@@ -116,6 +116,40 @@ seekerRoutes.post('/requests', (_req, res) => {
   const latest = latestRequestFor(requestsForSeeker(mine), mine)
   if (latest && requestStatus(latest) !== 'closed') return fail(res, 409, 'You already have an open request.')
   run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', randomUUID(), mine, Date.now())
+  res.status(201).json({ ok: true })
+})
+
+/** Asks to be matched with a featured member: added to the open request, or a new one is opened. */
+seekerRoutes.post('/featured/:id/request', (req, res) => {
+  const mine = myProfileId(res)
+  if (!mine) return
+  const candidate = profileRow(req.params.id)
+  if (!candidate || candidate.public_listing !== 1) return fail(res, 404, 'This member is no longer featured.')
+  if (candidate.id === mine) return fail(res, 400, 'You can’t request a match with yourself.')
+
+  const latest = latestRequestFor(requestsForSeeker(mine), mine)
+  const status = latest && requestStatus(latest)
+  if (status === 'matched') {
+    return fail(res, 409, 'You’re already matched on your current request. Close it first to request someone new.')
+  }
+  if (latest && status !== 'closed' && latest.proposals.some((p) => p.candidateId === candidate.id)) {
+    return fail(res, 409, 'Your matchmaker has already proposed this person to you.')
+  }
+
+  const now = Date.now()
+  transaction(() => {
+    let requestId = latest && status !== 'closed' ? latest.id : undefined
+    if (!requestId) {
+      requestId = randomUUID()
+      run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', requestId, mine, now)
+    }
+    run(
+      'INSERT OR IGNORE INTO requested_members (request_id, candidate_id, created_at) VALUES (?, ?, ?)',
+      requestId,
+      candidate.id,
+      now,
+    )
+  })
   res.status(201).json({ ok: true })
 })
 

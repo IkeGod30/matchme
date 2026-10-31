@@ -549,7 +549,6 @@ export function Landing(props: LandingProps) {
   }
   return (
     <div className="stack">
-      <AudienceToggle audience={audience} onChange={onAudience} />
       {audience === 'seeker' ? (
         <SeekerLanding
           ctaLabel={props.seekerCta}

@@ -135,8 +135,13 @@ function toProposal(row: ProposalRow): Proposal {
 
 function assemble(rows: RequestRow[]): MatchRequest[] {
   if (rows.length === 0) return []
+  const placeholders = rows.map(() => '?').join(',')
   const proposals = all<ProposalRow>(
-    `SELECT * FROM proposals WHERE request_id IN (${rows.map(() => '?').join(',')}) ORDER BY proposed_at`,
+    `SELECT * FROM proposals WHERE request_id IN (${placeholders}) ORDER BY proposed_at`,
+    ...rows.map((r) => r.id),
+  )
+  const asked = all<{ request_id: string; candidate_id: string; created_at: number }>(
+    `SELECT * FROM requested_members WHERE request_id IN (${placeholders}) ORDER BY created_at`,
     ...rows.map((r) => r.id),
   )
   return rows.map((r) => ({
@@ -149,6 +154,9 @@ function assemble(rows: RequestRow[]): MatchRequest[] {
     assignedAt: opt(r.assigned_at),
     notes: JSON.parse(r.notes) as MatchRequest['notes'],
     proposals: proposals.filter((p) => p.request_id === r.id).map(toProposal),
+    requestedMembers: asked
+      .filter((a) => a.request_id === r.id)
+      .map((a) => ({ candidateId: a.candidate_id, at: a.created_at })),
   }))
 }
 
@@ -186,6 +194,7 @@ export function incomingForCandidate(candidateId: string): MatchRequest[] {
   return assemble(rows).map((r) => ({
     ...r,
     notes: [],
+    requestedMembers: [],
     proposals: r.proposals.filter((p) => p.candidateId === candidateId && p.response === 'accepted'),
   }))
 }

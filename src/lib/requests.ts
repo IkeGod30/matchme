@@ -49,7 +49,15 @@ export function requestStatus(r: MatchRequest): RequestStatus {
   if (r.proposals.length === 0) return 'new'
   const lastProposed = Math.max(...r.proposals.map((p) => p.proposedAt))
   if (r.moreRequestedAt && r.moreRequestedAt > lastProposed) return 'new'
+  // Asking for a featured member by name also puts the request back in front of the matchmaker.
+  if (unproposedRequests(r).some((a) => a.at > lastProposed)) return 'new'
   return 'responded'
+}
+
+/** Featured members the seeker asked for who haven't been proposed to them yet. */
+export function unproposedRequests(r: MatchRequest): MatchRequest['requestedMembers'] {
+  const proposed = new Set(r.proposals.map((p) => p.candidateId))
+  return (r.requestedMembers ?? []).filter((a) => !proposed.has(a.candidateId))
 }
 
 /** The seeker's most recent request, if any. */

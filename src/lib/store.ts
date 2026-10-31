@@ -340,6 +340,11 @@ export const actions = {
     return perform(() => api('POST', '/seeker/requests'))
   },
 
+  /** Asks to be matched with a featured member (opens a request if there isn't one). */
+  requestFeatured(memberId: string) {
+    return perform(() => api('POST', `/seeker/featured/${memberId}/request`))
+  },
+
   respond(_requestId: string, proposalId: string, response: Exclude<ProposalResponse, 'pending'>, comment: string) {
     return perform(() => api('POST', `/seeker/proposals/${proposalId}/respond`, { response, comment }))
   },

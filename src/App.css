@@ -933,6 +933,21 @@
   justify-content: flex-end;
 }
 
+/* Secondary entry point for the other audience — deliberately quieter than Sign up. */
+.audience-link {
+  border: 0;
+  background: none;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audience-link:hover {
+  color: var(--accent);
+}
+
 .account {
   display: flex;
   align-items: center;
@@ -1744,6 +1759,32 @@
 
 .public-body p {
   margin: 0;
+}
+
+/* "Request a match with …" sits at the bottom of each featured card. */
+.public-action {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.public-action .badge {
+  margin-right: 6px;
+}
+
+/* Featured members a seeker asked for, on their request page. */
+.asked-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.asked-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .demo-tag {

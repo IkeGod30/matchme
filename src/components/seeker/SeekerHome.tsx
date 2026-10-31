@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { formatFee } from '../../config'
 import { timeAgo } from '../../lib/format'
 import { requestFit } from '../../lib/matching'
-import { latestRequestFor, proposalState, requestStatus, type RequestStatus } from '../../lib/requests'
-import { actions, findMember, type AppData } from '../../lib/store'
+import { latestRequestFor, proposalState, requestStatus, unproposedRequests, type RequestStatus } from '../../lib/requests'
+import { actions, findMember, useFeatured, type AppData } from '../../lib/store'
 import type { MatchRequest, Profile, Proposal } from '../../types'
 import { CandidateCard } from '../shared/CandidateCard'
 import { MatchmakerCard } from '../shared/MatchmakerCard'
+import { Portrait } from '../shared/Portrait'
 import { PaymentDialog } from './PaymentDialog'
 import { ProposalChip, StatusChip } from '../shared/StatusChip'
 
@@ -180,6 +181,7 @@ function IncomingInterest({ me, data }: { me: Profile; data: AppData }) {
 
 export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: AppData; onEditRequest: () => void }) {
   const [paying, setPaying] = useState<{ proposalId: string; candidate: Profile } | null>(null)
+  const featured = useFeatured()
   const request = latestRequestFor(data.requests, me.id)
   const status = request ? requestStatus(request) : undefined
 
@@ -212,6 +214,10 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
   const toReview = withCandidates.filter((x) => proposalState(x.proposal) === 'pending')
   const inProgress = withCandidates.filter((x) => ['checking', 'mutual', 'paid'].includes(proposalState(x.proposal)))
   const finished = withCandidates.filter((x) => ['declined', 'not_interested'].includes(proposalState(x.proposal)))
+  // Featured members asked for by name and not proposed yet (members who've since unlisted are left out).
+  const asked = unproposedRequests(request)
+    .map((a) => featured.find((p) => p.id === a.candidateId))
+    .filter((p): p is Profile => !!p)
   const names = (state: string) =>
     withCandidates.filter((x) => proposalState(x.proposal) === state).map((x) => x.candidate.name).join(' and ')
 
@@ -284,6 +290,29 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
                 </li>
               ))}
             </ul>
+          </article>
+        )}
+
+        {asked.length > 0 && (
+          <article className="card">
+            <h3>You asked to be matched with</h3>
+            <ul className="asked-list">
+              {asked.map((p) => (
+                <li key={p.id}>
+                  <Portrait profile={p} size={40} round />
+                  <span>
+                    <strong>
+                      {p.name}, {p.age}
+                    </strong>
+                    <span className="muted small"> · {p.city}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="muted small">
+              Your matchmaker will propose them to you here. Once you accept, they’re asked whether they’re interested
+              too.
+            </p>
           </article>
         )}
 

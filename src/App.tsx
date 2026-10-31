@@ -10,8 +10,8 @@ import { ProfileForm } from './components/seeker/ProfileForm'
 import { ProfileView } from './components/seeker/ProfileView'
 import { SeekerHome } from './components/seeker/SeekerHome'
 import { emptyPhysical, emptyRequest } from './data/attributes'
-import { clearProfileDraft } from './lib/draft'
-import { requestStatus } from './lib/requests'
+import { clearFeaturedPick, clearProfileDraft, loadFeaturedPick, saveFeaturedPick } from './lib/draft'
+import { latestRequestFor, requestStatus } from './lib/requests'
 import { actions, logOut, useStartStore, useStore } from './lib/store'
 import type { Profile } from './types'
 import './App.css'
@@ -145,10 +145,39 @@ function App() {
     else openAuth('signup', 'matchmaker')
   }
 
+  // The seeker's open request, and who is already asked for or proposed on it.
+  const latest = me ? latestRequestFor(data.requests, me.id) : undefined
+  const openRequest = latest && !latest.closedAt ? latest : undefined
+  const requestedIds = new Set([
+    ...(openRequest?.requestedMembers ?? []).map((a) => a.candidateId),
+    ...(openRequest?.proposals ?? []).map((p) => p.candidateId),
+  ])
+
+  /** "Request a match with …" on a featured card. Without a profile yet, the pick waits until there is one. */
+  function requestMember(memberId: string) {
+    if (user?.role === 'seeker' && me) {
+      void actions.requestFeatured(memberId)
+      return
+    }
+    saveFeaturedPick(memberId)
+    startAsSeeker()
+  }
+
+  // Send a remembered pick once the seeker is signed in and has a profile.
+  useEffect(() => {
+    if (user?.role !== 'seeker' || !me) return
+    const pick = loadFeaturedPick()
+    if (!pick) return
+    clearFeaturedPick()
+    void actions.requestFeatured(pick)
+  }, [user, me])
+
   async function handleCreate(profile: Profile) {
+    // A remembered featured pick opens the request itself (see the effect above).
+    const pick = loadFeaturedPick()
     if (await actions.saveProfile(profile)) {
       clearProfileDraft()
-      await actions.submitRequest()
+      if (!pick) await actions.submitRequest()
       openApp('home')
     }
   }
@@ -164,8 +193,9 @@ function App() {
   }
 
   async function handleLogOut() {
-    // Don't leave one person's unsaved draft for the next person on this computer.
+    // Don't leave one person's unsaved draft or pick for the next person on this computer.
     clearProfileDraft()
+    clearFeaturedPick()
     await logOut()
     show('home')
   }
@@ -182,6 +212,7 @@ function App() {
     : isMatchmaker
       ? 'Open the dashboard'
       : 'Apply to be a matchmaker'
+  const onMatchmakerSide = screen === 'home' && audience === 'matchmaker'
 
   return (
     <div className="app">
@@ -218,6 +249,19 @@ function App() {
               </>
             )}
           </nav>
+          {!user && !loading && (
+            <button
+              type="button"
+              className="audience-link"
+              onClick={() => {
+                setAudience(onMatchmakerSide ? 'seeker' : 'matchmaker')
+                show('home')
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            >
+              {onMatchmakerSide ? 'For seekers' : 'For matchmakers'}
+            </button>
+          )}
           {user ? (
             <div className="account">
               <span className="muted small" title={user.email}>
@@ -264,7 +308,14 @@ function App() {
         )}
 
         {!loading && screen === 'featured' && (
-          <FeaturedMembers meId={me?.id ?? null} signedIn={!!user} onRequestMatch={startFromLanding} />
+          <FeaturedMembers
+            meId={me?.id ?? null}
+            signedIn={!!user}
+            canRequest={!isMatchmaker}
+            requestedIds={requestedIds}
+            onRequestMember={requestMember}
+            onRequestMatch={startFromLanding}
+          />
         )}
 
         {!loading && (screen === 'login' || screen === 'signup' || (inApp && !user)) && (
