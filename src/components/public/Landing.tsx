@@ -1,8 +1,8 @@
 import { useState, type CSSProperties } from 'react'
-import { BODY_FEATURES, type FeatureKey } from '../data/attributes'
-import { SAMPLE_PROFILES } from '../data/sampleProfiles'
-import { FeaturePicker } from './FeaturePicker'
-import { Portrait } from './Portrait'
+import { BODY_FEATURES, type FeatureKey } from '../../data/attributes'
+import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
+import { FeaturePicker } from '../shared/FeaturePicker'
+import { Portrait } from '../shared/Portrait'
 
 const STEPS = [
   {
@@ -120,14 +120,18 @@ const FAQ = [
 
 const HERO_NAMES = ['Funmilayo', 'Daniel', 'Layla']
 
-interface LandingProps {
+export type Audience = 'seeker' | 'matchmaker'
+
+interface SideProps {
   ctaLabel: string
   onStart: () => void
-  onMatchmaker: () => void
+  /** Shown only to visitors who aren't signed in. */
+  onLogin?: () => void
   onFeatured: () => void
+  onSwitch: () => void
 }
 
-export function Landing({ ctaLabel, onStart, onMatchmaker, onFeatured }: LandingProps) {
+function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: SideProps) {
   const [demoKey, setDemoKey] = useState<FeatureKey>(DEMO_FEATURES[0])
   const [demoPicks, setDemoPicks] = useState<Record<string, string[]>>({})
   const demoFeature = BODY_FEATURES.find((f) => f.key === demoKey)!
@@ -147,9 +151,11 @@ export function Landing({ ctaLabel, onStart, onMatchmaker, onFeatured }: Landing
             <button type="button" className="btn primary large" onClick={onStart}>
               {ctaLabel}
             </button>
-            <a className="btn ghost large" href="#how-it-works">
-              How it works
-            </a>
+            {onLogin && (
+              <button type="button" className="btn ghost large" onClick={onLogin}>
+                Seeker log in
+              </button>
+            )}
           </div>
           <ul className="hero-points">
             <li>No upfront fees — pay only when it’s mutual</li>
@@ -317,11 +323,250 @@ export function Landing({ ctaLabel, onStart, onMatchmaker, onFeatured }: Landing
           <button type="button" className="link-btn" onClick={onFeatured}>
             See featured members
           </button>
-          <button type="button" className="link-btn" onClick={onMatchmaker}>
-            Are you a matchmaker? Open the matchmaker dashboard →
+          <button type="button" className="link-btn" onClick={onSwitch}>
+            Are you a matchmaker? See the matchmaker side →
           </button>
         </span>
       </footer>
+    </div>
+  )
+}
+
+/* ---------- Matchmaker side ---------- */
+
+const MM_STEPS = [
+  { title: 'Apply', body: 'Tell us about yourself and your matchmaking experience. It takes a few minutes and costs nothing.' },
+  {
+    title: 'Get approved',
+    body: 'A matchmaker on the MatchMe team reviews your application. Invited by a teammate? You’re approved straight away.',
+  },
+  {
+    title: 'Take on requests',
+    body: 'Pick up seekers’ requests: their message, background and the physical features they chose from pictures.',
+  },
+  {
+    title: 'Propose & introduce',
+    body: 'Send hand-picked matches. When both people say yes and the seeker confirms, you arrange the introduction.',
+  },
+]
+
+const MM_TOOLS = [
+  { title: 'Ranked shortlists', body: 'Every member is scored against the request — both ways — so the best fits rise to the top.' },
+  { title: 'Picture-based preferences', body: 'No guessing what “athletic” or “curvy” means: seekers chose from picture examples.' },
+  { title: 'Private team notes', body: 'Keep notes on each request that only matchmakers see — never the seeker.' },
+  { title: 'Member directory', body: 'Search every member by name, city, job, gender or relationship status.' },
+  { title: 'Mutual-interest tracking', body: 'See who accepted, record the other person’s answer, and know when a match is paid.' },
+  { title: 'Teamwork built in', body: 'Claim requests, hand them over to a teammate, and invite new matchmakers.' },
+]
+
+const MM_FAQ = [
+  {
+    q: 'Who can become a matchmaker?',
+    a: 'Anyone who cares about helping people build lasting relationships and can treat members’ information with discretion. Professional or community matchmaking experience helps, but tell us about yours either way.',
+  },
+  {
+    q: 'What happens after I apply?',
+    a: 'You can log in straight away, but you won’t see any members or requests until a matchmaker on the team approves your application. You’ll get an email when they decide.',
+  },
+  {
+    q: 'A matchmaker invited me. Do I need to apply?',
+    a: 'No — use the invitation link from your email. Invited matchmakers are approved as soon as they sign up.',
+  },
+  {
+    q: 'What can matchmakers see?',
+    a: 'Approved matchmakers can see members’ full profiles and requests, so they can make good matches. That’s why every applicant is reviewed, and why matchmakers agree to keep everything confidential.',
+  },
+]
+
+function MatchmakerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: SideProps) {
+  return (
+    <div className="landing">
+      <section className="landing-hero">
+        <div className="hero-copy">
+          <span className="eyebrow">For matchmakers</span>
+          <h1>Bring people together — with the tools to do it well.</h1>
+          <p className="lead">
+            MatchMe gives matchmakers a private workspace: detailed, picture-based requests from seekers, a ranked
+            shortlist for every request, and one place to propose matches and follow every answer.
+          </p>
+          <div className="hero-actions">
+            <button type="button" className="btn primary large" onClick={onStart}>
+              {ctaLabel}
+            </button>
+            {onLogin && (
+              <button type="button" className="btn ghost large" onClick={onLogin}>
+                Matchmaker log in
+              </button>
+            )}
+          </div>
+          <ul className="hero-points">
+            <li>Free to apply</li>
+            <li>Every applicant reviewed by our team</li>
+            <li>Private by design</li>
+          </ul>
+        </div>
+
+        <div className="hero-visual mm-visual" aria-hidden="true">
+          <div className="mock-stats">
+            <div className="mock-stat">
+              <strong>3</strong>
+              <span>Unassigned requests</span>
+            </div>
+            <div className="mock-stat">
+              <strong>5</strong>
+              <span>My open requests</span>
+            </div>
+            <div className="mock-stat">
+              <strong>2</strong>
+              <span>Awaiting payment</span>
+            </div>
+          </div>
+          {[
+            { name: 'Kwame, 34', where: 'Accra', status: 'Needs matches', action: 'Take it on' },
+            { name: 'Amara, 29', where: 'Lagos', status: 'Ask candidate', action: 'Record answer' },
+            { name: 'Nia, 32', where: 'New York', status: 'Paid — introduce', action: 'Introduce' },
+          ].map((row, i) => (
+            <div key={row.name} className="mock-card" style={{ '--i': i } as CSSProperties}>
+              <span className="mock-dot">{row.name[0]}</span>
+              <div>
+                <strong>{row.name}</strong>
+                <span className="muted small">{row.where}</span>
+                <span className="mock-fit">{row.status}</span>
+              </div>
+              <div className="mock-actions">
+                <span className="mock-btn yes">{row.action}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2>How it works for matchmakers</h2>
+        <ol className="steps">
+          {MM_STEPS.map((step) => (
+            <li key={step.title}>
+              <h3>{step.title}</h3>
+              <p className="muted">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="landing-section">
+        <h2>Your workspace</h2>
+        <div className="reasons tools-grid">
+          {MM_TOOLS.map((tool) => (
+            <article key={tool.title} className="card">
+              <h3>{tool.title}</h3>
+              <p className="muted">{tool.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <article className="card trust-card">
+          <span className="eyebrow">A position of trust</span>
+          <h2>Members trust you with their private lives.</h2>
+          <p className="muted">
+            Matchmakers see full profiles — photos, preferences and personal details that members don’t share
+            publicly. Every matchmaker agrees to keep this information confidential, to share a member’s profile only
+            with the people they propose, and never to contact members outside MatchMe for personal reasons.
+          </p>
+        </article>
+      </section>
+
+      <section className="landing-section faq">
+        <h2>Questions</h2>
+        {MM_FAQ.map((item) => (
+          <details key={item.q} className="card">
+            <summary>{item.q}</summary>
+            <p className="muted">{item.a}</p>
+          </details>
+        ))}
+      </section>
+
+      <section className="landing-cta card">
+        <h2>Ready to help people find each other?</h2>
+        <p className="muted">Apply in a few minutes. A matchmaker on our team will review your application.</p>
+        <button type="button" className="btn primary large" onClick={onStart}>
+          {ctaLabel}
+        </button>
+      </section>
+
+      <footer className="landing-footer">
+        <span>
+          <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
+        </span>
+        <span className="footer-links">
+          <button type="button" className="link-btn" onClick={onFeatured}>
+            See featured members
+          </button>
+          <button type="button" className="link-btn" onClick={onSwitch}>
+            Looking for a partner? See the seeker side →
+          </button>
+        </span>
+      </footer>
+    </div>
+  )
+}
+
+/* ---------- Page with the Seeker | Matchmaker toggle ---------- */
+
+export function AudienceToggle({ audience, onChange }: { audience: Audience; onChange: (audience: Audience) => void }) {
+  return (
+    <div className="audience-toggle" role="tablist" aria-label="I am a">
+      <button type="button" role="tab" aria-selected={audience === 'seeker'} onClick={() => onChange('seeker')}>
+        <strong>Seeker</strong>
+        <span>I’m looking for a partner</span>
+      </button>
+      <button type="button" role="tab" aria-selected={audience === 'matchmaker'} onClick={() => onChange('matchmaker')}>
+        <strong>Matchmaker</strong>
+        <span>I bring people together</span>
+      </button>
+    </div>
+  )
+}
+
+interface LandingProps {
+  audience: Audience
+  onAudience: (audience: Audience) => void
+  signedIn: boolean
+  seekerCta: string
+  onSeekerStart: () => void
+  matchmakerCta: string
+  onMatchmakerStart: () => void
+  onLogin: (audience: Audience) => void
+  onFeatured: () => void
+}
+
+export function Landing(props: LandingProps) {
+  const { audience, onAudience, signedIn, onLogin, onFeatured } = props
+  const switchTo = (next: Audience) => {
+    onAudience(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  return (
+    <div className="stack">
+      <AudienceToggle audience={audience} onChange={onAudience} />
+      {audience === 'seeker' ? (
+        <SeekerLanding
+          ctaLabel={props.seekerCta}
+          onStart={props.onSeekerStart}
+          onLogin={signedIn ? undefined : () => onLogin('seeker')}
+          onFeatured={onFeatured}
+          onSwitch={() => switchTo('matchmaker')}
+        />
+      ) : (
+        <MatchmakerLanding
+          ctaLabel={props.matchmakerCta}
+          onStart={props.onMatchmakerStart}
+          onLogin={signedIn ? undefined : () => onLogin('matchmaker')}
+          onFeatured={onFeatured}
+          onSwitch={() => switchTo('seeker')}
+        />
+      )}
     </div>
   )
 }

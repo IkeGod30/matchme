@@ -1,4 +1,5 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { loadProfileDraft, saveProfileDraft } from '../../lib/draft'
 import {
   GENDERS,
   HEIGHT_MAX_CM,
@@ -12,17 +13,17 @@ import {
   preferenceFeaturesFor,
   selfFeaturesFor,
   wantedOptions,
-} from '../data/attributes'
-import { COUNTRIES, PROFESSIONS, RACES } from '../data/options'
-import { SAMPLE_PROFILES } from '../data/sampleProfiles'
-import { resizeImage } from '../lib/format'
-import type { PartnerRequest, PhysicalProfile, Profile } from '../types'
-import { ChipSelect } from './ChipSelect'
-import { FeatureArt } from './FeatureArt'
-import { FeaturePicker } from './FeaturePicker'
-import { Portrait } from './Portrait'
-import { RequestSummary } from './RequestSummary'
-import { TagInput } from './TagInput'
+} from '../../data/attributes'
+import { COUNTRIES, PROFESSIONS, RACES, RELATIONSHIP_STATUSES } from '../../data/options'
+import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
+import { resizeImage } from '../../lib/format'
+import type { PartnerRequest, PhysicalProfile, Profile } from '../../types'
+import { ChipSelect } from '../shared/ChipSelect'
+import { FeatureArt } from '../shared/FeatureArt'
+import { FeaturePicker } from '../shared/FeaturePicker'
+import { Portrait } from '../shared/Portrait'
+import { RequestSummary } from '../shared/RequestSummary'
+import { TagInput } from '../shared/TagInput'
 import { VisibilitySetting } from './VisibilitySetting'
 
 const STEPS = ['About you', 'Your body', 'Your request', 'Desired features', 'Review'] as const
@@ -46,6 +47,7 @@ function validate(step: number, p: Profile): string[] {
     if (!p.city.trim() || !p.country) errors.push('Enter your city and country.')
     if (!p.nationality) errors.push('Choose your nationality.')
     if (!p.race) errors.push('Choose your race / ethnicity.')
+    if (!p.relationshipStatus) errors.push('Choose your relationship status.')
     if (!p.profession) errors.push('Choose your profession.')
   }
   if (step === 1) {
@@ -66,7 +68,12 @@ function validate(step: number, p: Profile): string[] {
 }
 
 export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormProps) {
-  const [draft, setDraft] = useState<Profile>(initial)
+  // New profiles resume from a saved draft (e.g. after a reload or a failed save).
+  const [draft, setDraft] = useState<Profile>(() => (isNew ? (loadProfileDraft() ?? initial) : initial))
+
+  useEffect(() => {
+    if (isNew) saveProfileDraft(draft)
+  }, [isNew, draft])
   const [step, setStep] = useState(0)
   const [featureIdx, setFeatureIdx] = useState(0)
   const [errors, setErrors] = useState<string[]>([])
@@ -243,6 +250,18 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
               </select>
             </label>
             <label className="field">
+              <span>Relationship status</span>
+              <select
+                value={draft.relationshipStatus ?? ''}
+                onChange={(e) => update({ relationshipStatus: e.target.value })}
+              >
+                <option value="">Select…</option>
+                {RELATIONSHIP_STATUSES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               <span>Profession</span>
               <select value={draft.profession} onChange={(e) => update({ profession: e.target.value })}>
                 <option value="">Select…</option>
@@ -376,6 +395,18 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             options={PROFESSIONS}
             selected={draft.request.professions}
             onChange={(professions) => updateRequest({ professions })}
+          />
+          <ChipSelect
+            label="Relationship status"
+            hint={
+              draft.request.relationshipStatuses?.length
+                ? `${draft.request.relationshipStatuses.length} selected`
+                : 'open to all'
+            }
+            multiple
+            options={RELATIONSHIP_STATUSES}
+            selected={draft.request.relationshipStatuses ?? []}
+            onChange={(relationshipStatuses) => updateRequest({ relationshipStatuses })}
           />
         </section>
       )}

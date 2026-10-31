@@ -199,6 +199,7 @@ export function emptyRequest(): PartnerRequest {
     races: [],
     nationalities: [],
     professions: [],
+    relationshipStatuses: [],
     physical: Object.fromEntries(BODY_FEATURES.map((f) => [f.key, []])) as unknown as PartnerRequest['physical'],
   }
 }

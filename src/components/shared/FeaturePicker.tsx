@@ -1,4 +1,4 @@
-import { optionNote, type BodyFeature } from '../data/attributes'
+import { optionNote, type BodyFeature } from '../../data/attributes'
 import { FeatureImage } from './FeatureImage'
 import type { FigureSex } from './silhouettes'
 

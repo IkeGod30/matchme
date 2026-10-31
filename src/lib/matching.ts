@@ -42,6 +42,11 @@ export function requestFit(req: PartnerRequest, p: Profile): Fit {
     req.nationalities.some((n) => sameText(n, p.nationality)),
   )
   check('Profession', 'Background', req.professions, () => req.professions.includes(p.profession))
+  // Requests and profiles saved before relationship status existed simply skip it.
+  const statuses = req.relationshipStatuses ?? []
+  if (p.relationshipStatus) {
+    check('Relationship status', 'Background', statuses, () => statuses.includes(p.relationshipStatus))
+  }
 
   for (const feature of BODY_FEATURES) {
     const value = featureValue(p.physical, feature.key)

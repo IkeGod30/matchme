@@ -1,8 +1,8 @@
 import { useState, type ChangeEvent } from 'react'
-import { BODY_FEATURES, featureGenders, genderNoun, type FeatureKey } from '../data/attributes'
-import { resizeImage } from '../lib/format'
-import { actions, exampleKey, type AppData } from '../lib/store'
-import { FeatureImage } from './FeatureImage'
+import { BODY_FEATURES, featureGenders, genderNoun, type FeatureKey } from '../../data/attributes'
+import { resizeImage } from '../../lib/format'
+import { actions, exampleKey, type AppData } from '../../lib/store'
+import { FeatureImage } from '../shared/FeatureImage'
 
 const TOTAL_OPTIONS = BODY_FEATURES.reduce((sum, f) => sum + f.options.length, 0)
 
@@ -17,8 +17,8 @@ export function ExampleLibrary({ data }: { data: AppData }) {
     if (!file) return
     setError(null)
     try {
-      const saved = actions.setExample(feature, option, await resizeImage(file, 320))
-      if (!saved) setError('Browser storage is full, so that photo will be lost on reload. Remove some photos first.')
+      // Errors from the server are shown by the action itself.
+      await actions.setExample(feature, option, await resizeImage(file, 320))
     } catch (e) {
       setError((e as Error).message)
     }

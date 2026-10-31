@@ -1,9 +1,9 @@
-import { actions } from '../lib/store'
-import type { Profile } from '../types'
-import { MemberLine } from './CandidateCard'
-import { PhysicalSummary } from './PhysicalSummary'
-import { Portrait } from './Portrait'
-import { RequestSummary } from './RequestSummary'
+import { actions } from '../../lib/store'
+import type { Profile } from '../../types'
+import { MemberLine } from '../shared/CandidateCard'
+import { PhysicalSummary } from '../shared/PhysicalSummary'
+import { Portrait } from '../shared/Portrait'
+import { RequestSummary } from '../shared/RequestSummary'
 import { VisibilitySetting } from './VisibilitySetting'
 
 export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; onEdit: () => void; onDelete: () => void }) {

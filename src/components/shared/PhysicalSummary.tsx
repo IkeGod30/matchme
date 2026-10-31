@@ -1,5 +1,5 @@
-import { SELF_FEATURES, figureFor, formatHeight, heightBand } from '../data/attributes'
-import type { Gender, PhysicalProfile } from '../types'
+import { SELF_FEATURES, figureFor, formatHeight, heightBand } from '../../data/attributes'
+import type { Gender, PhysicalProfile } from '../../types'
 import { FeatureImage } from './FeatureImage'
 
 interface PhysicalSummaryProps {

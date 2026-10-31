@@ -1,233 +1,407 @@
-import { useSyncExternalStore } from 'react'
-import { SAMPLE_PROFILES } from '../data/sampleProfiles'
-import type { CandidateResponse, MatchRequest, Profile, Proposal, ProposalResponse } from '../types'
-import { latestRequestFor, requestStatus } from './requests'
+import { useEffect, useSyncExternalStore } from 'react'
+import type {
+  Application,
+  CandidateResponse,
+  Invite,
+  MatchmakerProfile,
+  MatchRequest,
+  Profile,
+  ProposalResponse,
+  TeamMember,
+} from '../types'
+import { api, ApiError } from './api'
 
-// Single shared store for seekers and the matchmaker, persisted to localStorage.
-// Tabs stay in sync via the `storage` event, so a seeker tab and a matchmaker tab
-// can be open side by side. Swap this module for a real backend later.
+// Client-side cache of what the server lets the signed-in user see. Every action calls
+// the API and then reloads, so the server stays the single source of truth.
 
-const DATA_KEY = 'matchme.data.v3'
+export type Role = 'seeker' | 'matchmaker'
+
+export interface User {
+  id: string
+  email: string
+  role: Role
+  /** 'pending' = a matchmaker whose application hasn't been approved yet. */
+  status: 'active' | 'pending'
+}
 
 export interface AppData {
-  /** Members created in this app (sample members live in SAMPLE_PROFILES). */
+  /** Members visible to the current user (all of them for the matchmaker). */
   profiles: Profile[]
   requests: MatchRequest[]
   /** Real-life example photos uploaded by the matchmaker, keyed by exampleKey(). */
   examples: Record<string, string>
 }
 
+/** What only matchmakers receive: their own profile, the team and pending invitations. */
+export interface MatchmakerData {
+  me: TeamMember
+  team: TeamMember[]
+  invites: Invite[]
+  applications: Application[]
+}
+
+interface State {
+  user: User | null
+  /** True until the first session check finishes. */
+  loading: boolean
+  /** The signed-in seeker's own profile, if they've created one. */
+  me: Profile | null
+  /** Set when the signed-in user is a matchmaker. */
+  matchmaker: MatchmakerData | null
+  data: AppData
+  featured: Profile[]
+}
+
 export const exampleKey = (feature: string, option: string) => `${feature}:${option}`
 
-const HOUR = 3_600_000
-const DAY = 24 * HOUR
+const EMPTY: AppData = { profiles: [], requests: [], examples: {} }
 
-function seed(): AppData {
-  const now = Date.now()
-  return {
-    profiles: [],
-    examples: {},
-    requests: [
-      { id: 'req-seed-1', seekerId: 'sample-1', createdAt: now - 2 * DAY, notes: [], proposals: [] },
-      { id: 'req-seed-2', seekerId: 'sample-15', createdAt: now - 5 * HOUR, notes: [], proposals: [] },
-      {
-        id: 'req-seed-3',
-        seekerId: 'sample-12',
-        createdAt: now - 4 * DAY,
-        notes: [{ at: now - 2 * DAY, text: 'Nia, I think both of these gentlemen could be a lovely fit. Let me know!' }],
-        proposals: [
-          {
-            id: 'prop-seed-1',
-            candidateId: 'sample-15',
-            note: 'Faith-driven, ambitious and family-minded — very much what you described.',
-            proposedAt: now - 2 * DAY,
-            response: 'declined',
-            respondedAt: now - DAY,
-            comment: 'He seems wonderful, but I would really prefer someone already in the US.',
-          },
-          {
-            id: 'prop-seed-2',
-            candidateId: 'sample-4',
-            note: 'Tall, athletic and ready to settle down. He has visited New York often.',
-            proposedAt: now - 2 * DAY,
-            response: 'accepted',
-            respondedAt: now - 20 * HOUR,
-            comment: 'Yes please! Would love an introduction.',
-            candidateResponse: 'interested',
-            candidateRespondedAt: now - 6 * HOUR,
-            candidateComment: 'Happy to meet her — she sounds lovely.',
-          },
-        ],
-      },
-    ],
-  }
-}
-
-function load(): AppData {
-  try {
-    const raw = localStorage.getItem(DATA_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as AppData
-      if (Array.isArray(parsed.profiles) && Array.isArray(parsed.requests)) return { ...parsed, examples: parsed.examples ?? {} }
-    }
-  } catch {
-    // fall through to seed data
-  }
-  return seed()
-}
-
-let data = load()
+let state: State = { user: null, loading: true, me: null, matchmaker: null, data: EMPTY, featured: [] }
 const listeners = new Set<() => void>()
 
-function emit() {
+function setState(patch: Partial<State>) {
+  state = { ...state, ...patch }
   for (const listener of listeners) listener()
 }
 
-/** Returns false when the change could not be persisted (e.g. storage quota exceeded). */
-function commit(next: AppData): boolean {
-  data = next
-  let saved = true
-  try {
-    localStorage.setItem(DATA_KEY, JSON.stringify(next))
-  } catch {
-    // Storage full or unavailable – keep working in memory.
-    saved = false
-  }
-  emit()
-  return saved
-}
-
-function onStorage(event: StorageEvent) {
-  if (event.key !== DATA_KEY) return
-  data = load()
-  emit()
-}
-
 function subscribe(listener: () => void) {
-  if (listeners.size === 0) window.addEventListener('storage', onStorage)
   listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-    if (listeners.size === 0) window.removeEventListener('storage', onStorage)
-  }
+  return () => listeners.delete(listener)
+}
+
+export function useStore(): State {
+  return useSyncExternalStore(subscribe, () => state)
 }
 
 export function useAppData(): AppData {
-  return useSyncExternalStore(subscribe, () => data)
+  return useStore().data
 }
 
-/** Everyone the matchmaker can match: sample members plus members created here. */
 export function allMembers(d: AppData): Profile[] {
-  return [...SAMPLE_PROFILES, ...d.profiles]
+  return d.profiles
 }
 
 export function findMember(d: AppData, id: string): Profile | undefined {
-  return allMembers(d).find((p) => p.id === id)
+  return d.profiles.find((p) => p.id === id)
 }
 
-function updateRequest(requestId: string, change: (r: MatchRequest) => MatchRequest) {
-  commit({ ...data, requests: data.requests.map((r) => (r.id === requestId ? change(r) : r)) })
+/* ---------- Loading ---------- */
+
+interface SeekerState {
+  profile: Profile | null
+  requests: MatchRequest[]
+  incoming: MatchRequest[]
+  members: Profile[]
 }
 
-function updateProposal(requestId: string, proposalId: string, change: (p: Proposal) => Proposal) {
-  updateRequest(requestId, (r) => ({ ...r, proposals: r.proposals.map((p) => (p.id === proposalId ? change(p) : p)) }))
+async function loadExamples(): Promise<Record<string, string>> {
+  return (await api<{ examples: Record<string, string> }>('GET', '/examples')).examples
 }
+
+/** Reloads everything the current user can see. */
+export async function refresh(): Promise<void> {
+  const examples = await loadExamples().catch(() => state.data.examples)
+  const { user } = state
+  if (!user) {
+    setState({ me: null, matchmaker: null, data: { ...EMPTY, examples } })
+    return
+  }
+  try {
+    if (user.role === 'matchmaker' && user.status === 'pending') {
+      // Applicants see nothing until a teammate approves them.
+      setState({ me: null, matchmaker: null, data: { ...EMPTY, examples } })
+    } else if (user.role === 'matchmaker') {
+      const res = await api<MatchmakerData & { profiles: Profile[]; requests: MatchRequest[] }>('GET', '/matchmaker/state')
+      setState({
+        me: null,
+        matchmaker: { me: res.me, team: res.team, invites: res.invites, applications: res.applications },
+        data: { profiles: res.profiles, requests: res.requests, examples },
+      })
+    } else {
+      const res = await api<SeekerState>('GET', '/seeker/state')
+      setState({
+        matchmaker: null,
+        me: res.profile,
+        data: {
+          profiles: res.profile ? [res.profile, ...res.members] : res.members,
+          requests: [...res.requests, ...res.incoming],
+          examples,
+        },
+      })
+    }
+  } catch (error) {
+    // Session expired or revoked: fall back to logged out.
+    if (error instanceof ApiError && error.status === 401) {
+      setState({ user: null, me: null, matchmaker: null, data: { ...EMPTY, examples } })
+    }
+      else throw error
+  }
+}
+
+let started = false
+
+/** Checks the session once, then keeps data fresh while the tab is in use. */
+export function useStartStore() {
+  useEffect(() => {
+    if (started) return
+    started = true
+    void (async () => {
+      try {
+        const { user } = await api<{ user: User | null }>('GET', '/auth/me')
+        setState({ user })
+        await refresh()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setState({ loading: false })
+      }
+    })()
+    const tick = () => {
+      if (!state.user || document.visibilityState !== 'visible') return
+      // A pending matchmaker's status can change (approval), so re-check the session itself.
+      ;(state.user.status === 'pending' ? reloadSession() : refresh()).catch(console.error)
+    }
+    window.addEventListener('focus', tick)
+    window.setInterval(tick, 20_000)
+  }, [])
+}
+
+export async function loadFeatured(): Promise<void> {
+  const { members } = await api<{ members: PublicCard[] }>('GET', '/public/featured')
+  setState({ featured: members.map(fromPublicCard) })
+}
+
+/** Loads the public Featured list when a component using it mounts. */
+export function useFeatured(): Profile[] {
+  const { featured } = useStore()
+  useEffect(() => {
+    loadFeatured().catch(console.error)
+  }, [])
+  return featured
+}
+
+interface PublicCard {
+  id: string
+  name: string
+  age: number
+  gender: Profile['gender']
+  city: string
+  profession: string
+  jobTitle: string
+  bio: string
+  photo?: string
+  isDemo: boolean
+  lookingFor: string
+  portrait: Partial<Profile['physical']>
+}
+
+/** Public cards carry only shared fields; fill the rest with blanks so existing components can render them. */
+function fromPublicCard(c: PublicCard): Profile {
+  return {
+    id: c.id,
+    name: c.name,
+    age: c.age,
+    gender: c.gender,
+    city: c.city,
+    country: '',
+    nationality: '',
+    race: '',
+    relationshipStatus: '', // private: never on public cards
+    profession: c.profession,
+    jobTitle: c.jobTitle,
+    bio: c.bio,
+    photo: c.photo,
+    isDemo: c.isDemo,
+    publicListing: true,
+    physical: { heightCm: 0, ...c.portrait } as Profile['physical'],
+    request: {
+      message: c.lookingFor,
+      seeking: [],
+      ageMin: 18,
+      ageMax: 99,
+      locations: [],
+      races: [],
+      nationalities: [],
+      professions: [],
+      relationshipStatuses: [],
+      physical: {} as Profile['request']['physical'],
+    },
+  }
+}
+
+/* ---------- Auth ---------- */
+
+export async function signUp(email: string, password: string): Promise<void> {
+  const { user } = await api<{ user: User }>('POST', '/auth/signup', { email, password })
+  setState({ user })
+  await refresh()
+}
+
+export async function logIn(email: string, password: string): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/login', { email, password })
+  setState({ user })
+  await refresh()
+  return user
+}
+
+/** Emails a reset link if the account exists. The server answers the same either way. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api('POST', '/auth/forgot', { email })
+}
+
+/** Sets a new password using the token from a reset link, then signs the user in. */
+export async function resetPassword(token: string, password: string): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/reset', { token, password })
+  setState({ user })
+  await refresh()
+  return user
+}
+
+export async function logOut(): Promise<void> {
+  await api('POST', '/auth/logout').catch(() => undefined)
+  setState({ user: null, me: null, matchmaker: null })
+  await refresh()
+}
+
+/** Re-checks the session, e.g. so a pending matchmaker sees when they've been approved. */
+export async function reloadSession(): Promise<void> {
+  const { user } = await api<{ user: User | null }>('GET', '/auth/me')
+  setState({ user })
+  await refresh()
+}
+
+export interface MatchmakerApplication {
+  email: string
+  password: string
+  displayName: string
+  experience: string
+  languages: string[]
+  agreeConfidentiality: boolean
+}
+
+/** Public application to become a matchmaker; the account stays pending until approved. */
+export async function applyAsMatchmaker(application: MatchmakerApplication): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/apply-matchmaker', application)
+  setState({ user })
+  await refresh()
+  return user
+}
+
+/** Checks a matchmaker invitation link before showing the sign-up form. */
+export async function checkInvite(token: string): Promise<{ valid: boolean; email: string | null }> {
+  return api('GET', `/public/invites/${encodeURIComponent(token)}`)
+}
+
+export async function signUpMatchmaker(token: string, email: string, password: string, displayName: string): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/signup-matchmaker', { token, email, password, displayName })
+  setState({ user })
+  await refresh()
+  return user
+}
+
+/* ---------- Actions ---------- */
+
+/** Runs an API call, reloads data, and shows any error to the user. */
+async function perform<T>(call: () => Promise<T>): Promise<T | undefined> {
+  try {
+    const result = await call()
+    await refresh()
+    return result
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : 'Something went wrong.')
+    await refresh().catch(() => undefined)
+    return undefined
+  }
+}
+
+const isServerPhoto = (photo: string | undefined) => !!photo && photo.startsWith('/api/')
 
 export const actions = {
+  /** Saves the seeker's own profile. A new data-URL photo is uploaded; a removed photo is deleted. */
   saveProfile(profile: Profile) {
-    const exists = data.profiles.some((p) => p.id === profile.id)
-    commit({
-      ...data,
-      profiles: exists ? data.profiles.map((p) => (p.id === profile.id ? profile : p)) : [...data.profiles, profile],
-    })
+    const { photo, ...rest } = profile
+    return perform(() =>
+      api<{ profile: Profile }>('PUT', '/seeker/profile', {
+        profile: rest,
+        publicListing: !!profile.publicListing,
+        photo: isServerPhoto(photo) ? undefined : (photo ?? null),
+      }),
+    )
   },
 
-  /** Sets or (with null) removes the example photo for one feature option. */
-  setExample(feature: string, option: string, photo: string | null): boolean {
-    const examples = { ...data.examples }
-    if (photo) examples[exampleKey(feature, option)] = photo
-    else delete examples[exampleKey(feature, option)]
-    return commit({ ...data, examples })
+  /** Deletes the signed-in seeker's account, profile and requests, then logs out. */
+  async deleteProfile() {
+    await perform(() => api('DELETE', '/seeker/account'))
+    setState({ user: null, me: null })
+    await refresh()
   },
 
-  deleteProfile(id: string) {
-    commit({
-      ...data,
-      profiles: data.profiles.filter((p) => p.id !== id),
-      requests: data.requests.filter((r) => r.seekerId !== id),
-    })
+  submitRequest() {
+    return perform(() => api('POST', '/seeker/requests'))
   },
 
-  /** Sends the seeker's current preferences to the matchmaker (one open request at a time). */
-  submitRequest(seekerId: string) {
-    const latest = latestRequestFor(data.requests, seekerId)
-    if (latest && requestStatus(latest) !== 'closed') return
-    const request: MatchRequest = {
-      id: crypto.randomUUID(),
-      seekerId,
-      createdAt: Date.now(),
-      notes: [],
-      proposals: [],
-    }
-    commit({ ...data, requests: [...data.requests, request] })
+  respond(_requestId: string, proposalId: string, response: Exclude<ProposalResponse, 'pending'>, comment: string) {
+    return perform(() => api('POST', `/seeker/proposals/${proposalId}/respond`, { response, comment }))
   },
 
-  sendProposals(requestId: string, picks: { candidateId: string; note: string }[], message: string) {
-    const now = Date.now()
-    updateRequest(requestId, (r) => ({
-      ...r,
-      notes: message.trim() ? [...r.notes, { at: now, text: message.trim() }] : r.notes,
-      proposals: [
-        ...r.proposals,
-        ...picks.map((pick) => ({
-          id: crypto.randomUUID(),
-          candidateId: pick.candidateId,
-          note: pick.note.trim(),
-          proposedAt: now,
-          response: 'pending' as const,
-        })),
-      ],
-    }))
+  /** The proposed person's answer — by the member themselves, or recorded by the matchmaker. */
+  recordCandidateResponse(_requestId: string, proposalId: string, answer: Exclude<CandidateResponse, 'pending'>, comment = '') {
+    const scope = state.user?.role === 'matchmaker' ? 'matchmaker' : 'seeker'
+    return perform(() => api('POST', `/${scope}/proposals/${proposalId}/interest`, { answer, comment }))
   },
 
-  /** Seeker's answer. Accepting asks the candidate next; nothing is charged yet. */
-  respond(requestId: string, proposalId: string, response: Exclude<ProposalResponse, 'pending'>, comment: string) {
-    updateProposal(requestId, proposalId, (p) => ({
-      ...p,
-      response,
-      respondedAt: Date.now(),
-      comment: comment.trim() || undefined,
-      candidateResponse: response === 'accepted' ? 'pending' : undefined,
-    }))
-  },
-
-  /** The proposed person's answer — given in-app by a member, or recorded by the matchmaker. */
-  recordCandidateResponse(
-    requestId: string,
-    proposalId: string,
-    answer: Exclude<CandidateResponse, 'pending'>,
-    comment = '',
-  ) {
-    updateProposal(requestId, proposalId, (p) => ({
-      ...p,
-      candidateResponse: answer,
-      candidateRespondedAt: Date.now(),
-      candidateComment: comment.trim() || undefined,
-    }))
-  },
-
-  /** Placeholder payment: records a test reference. Replace with a real payment provider. */
-  recordPayment(requestId: string, proposalId: string): string {
-    const ref = `TEST-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
-    updateProposal(requestId, proposalId, (p) => ({ ...p, paidAt: Date.now(), paymentRef: ref }))
-    return ref
+  /** Placeholder payment: the server records a test reference. */
+  async recordPayment(_requestId: string, proposalId: string): Promise<string | undefined> {
+    const res = await perform(() => api<{ paymentRef: string }>('POST', `/seeker/proposals/${proposalId}/pay`))
+    return res?.paymentRef
   },
 
   askForMore(requestId: string) {
-    updateRequest(requestId, (r) => ({ ...r, moreRequestedAt: Date.now() }))
+    return perform(() => api('POST', `/seeker/requests/${requestId}/more`))
   },
 
   closeRequest(requestId: string) {
-    updateRequest(requestId, (r) => ({ ...r, closedAt: Date.now() }))
+    const scope = state.user?.role === 'matchmaker' ? 'matchmaker' : 'seeker'
+    return perform(() => api('POST', `/${scope}/requests/${requestId}/close`))
+  },
+
+  sendProposals(requestId: string, picks: { candidateId: string; note: string }[], message: string) {
+    return perform(() => api('POST', `/matchmaker/requests/${requestId}/proposals`, { picks, message }))
+  },
+
+  /** Claims (own id), hands over (teammate's id) or releases (null) a request. */
+  assignRequest(requestId: string, matchmakerId: string | null) {
+    return perform(() => api('POST', `/matchmaker/requests/${requestId}/assign`, { matchmakerId }))
+  },
+
+  addInternalNote(requestId: string, text: string) {
+    return perform(() => api('POST', `/matchmaker/requests/${requestId}/internal-notes`, { text }))
+  },
+
+  /** Updates the signed-in matchmaker's profile. A data-URL photo is uploaded; null removes it. */
+  saveMatchmakerProfile(profile: Omit<MatchmakerProfile, 'id' | 'photo'> & { photo?: string | null }) {
+    return perform(() => api('PUT', '/matchmaker/profile', profile))
+  },
+
+  /** Creates an invitation link (emailed too when an address is given). */
+  createInvite(email: string) {
+    return perform(() => api<{ link: string; emailed: boolean }>('POST', '/matchmaker/invites', { email }))
+  },
+
+  revokeInvite(inviteId: string) {
+    return perform(() => api('DELETE', `/matchmaker/invites/${inviteId}`))
+  },
+
+  approveApplication(applicantId: string) {
+    return perform(() => api('POST', `/matchmaker/applications/${applicantId}/approve`))
+  },
+
+  declineApplication(applicantId: string) {
+    return perform(() => api('POST', `/matchmaker/applications/${applicantId}/decline`))
+  },
+
+  /** Sets or (with null) removes the example photo for one feature option. */
+  async setExample(feature: string, option: string, photo: string | null): Promise<boolean> {
+    return (await perform(() => api('PUT', '/matchmaker/examples', { feature, option, photo }))) !== undefined
   },
 }

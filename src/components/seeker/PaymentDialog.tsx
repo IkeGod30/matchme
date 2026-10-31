@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { formatFee } from '../config'
-import { actions } from '../lib/store'
-import type { Profile } from '../types'
-import { Portrait } from './Portrait'
+import { formatFee } from '../../config'
+import { actions } from '../../lib/store'
+import type { Profile } from '../../types'
+import { Portrait } from '../shared/Portrait'
 
 interface PaymentDialogProps {
   requestId: string
@@ -12,9 +12,9 @@ interface PaymentDialogProps {
 }
 
 /**
- * PLACEHOLDER checkout. No card details are collected and nothing is charged — it only
- * records a test reference. Swap the "simulate" handler for a real provider
- * (e.g. Paystack, Flutterwave or Stripe Checkout) when payments are connected.
+ * PLACEHOLDER checkout. No card details are collected and nothing is charged — the server
+ * only records a test reference (POST /api/seeker/proposals/:id/pay). Swap in a real
+ * provider (e.g. Paystack, Flutterwave or Stripe Checkout) and verify payment server-side.
  */
 export function PaymentDialog({ requestId, proposalId, match, onClose }: PaymentDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -25,12 +25,15 @@ export function PaymentDialog({ requestId, proposalId, match, onClose }: Payment
     dialogRef.current?.showModal()
   }, [])
 
-  function simulatePayment() {
+  async function simulatePayment() {
     setPhase('processing')
-    window.setTimeout(() => {
-      setReference(actions.recordPayment(requestId, proposalId))
+    const ref = await actions.recordPayment(requestId, proposalId)
+    if (ref) {
+      setReference(ref)
       setPhase('done')
-    }, 900)
+    } else {
+      setPhase('confirm')
+    }
   }
 
   return (

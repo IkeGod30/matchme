@@ -11,6 +11,16 @@ export const RACES = [
   'Mixed / multiracial',
 ]
 
+export const RELATIONSHIP_STATUSES = [
+  'Single',
+  'Single parent',
+  'Separated',
+  'Divorced (with kids)',
+  'Divorced (without kids)',
+  'Widowed (with kids)',
+  'Widowed (without kids)',
+]
+
 export const PROFESSIONS = [
   'Healthcare',
   'Technology',

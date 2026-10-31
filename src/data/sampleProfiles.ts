@@ -398,6 +398,29 @@ const DEMO_PHOTOS = import.meta.glob<string>('../assets/demo-photos/*.{jpg,jpeg,
   import: 'default',
 })
 
+const RELATIONSHIP: Record<string, string> = {
+  Priya: 'Divorced (without kids)',
+  Grace: 'Divorced (with kids)',
+  Ethan: 'Divorced (without kids)',
+  Olivier: 'Divorced (with kids)',
+  Chloe: 'Separated',
+  Ifeoma: 'Single parent',
+  Ngozi: 'Divorced (without kids)',
+  Efe: 'Single parent',
+  Riley: 'Single parent',
+  // Everyone else is Single.
+}
+
+/** Relationship statuses each sample member is open to (unlisted = open to all). */
+const WANTED_STATUSES: Record<string, string[]> = {
+  Amara: ['Single', 'Divorced (without kids)'],
+  Nia: ['Single', 'Divorced (without kids)'],
+  Layla: ['Single'],
+  Kwame: ['Single', 'Single parent'],
+  Zainab: ['Single'],
+  Grace: ['Single', 'Divorced (with kids)', 'Divorced (without kids)', 'Widowed (with kids)', 'Widowed (without kids)'],
+}
+
 /** Sample members who opted in to a public listing; everyone else stays private. */
 const FEATURED = new Set(['Funmilayo', 'Daniel', 'Layla', 'Efe', 'Mateo', 'Grace'])
 
@@ -420,6 +443,7 @@ export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
     country: s.country,
     nationality: s.nationality,
     race: s.race,
+    relationshipStatus: RELATIONSHIP[s.name] ?? 'Single',
     profession: s.profession,
     jobTitle: s.jobTitle,
     bio: '',
@@ -427,6 +451,13 @@ export const SAMPLE_PROFILES: Profile[] = seeds.map((s, i) => {
     isDemo: true,
     publicListing: FEATURED.has(s.name),
     physical: { ...s.physical, ...EXTRAS[s.name] },
-    request: { ...base, ...rest, ageMin: ages[0], ageMax: ages[1], physical: { ...base.physical, ...physical } },
+    request: {
+      ...base,
+      ...rest,
+      relationshipStatuses: WANTED_STATUSES[s.name] ?? [],
+      ageMin: ages[0],
+      ageMax: ages[1],
+      physical: { ...base.physical, ...physical },
+    },
   }
 })

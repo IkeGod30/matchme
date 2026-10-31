@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { formatFee } from '../config'
-import { timeAgo } from '../lib/format'
-import { requestFit } from '../lib/matching'
-import { latestRequestFor, proposalState, requestStatus, type RequestStatus } from '../lib/requests'
-import { actions, findMember, type AppData } from '../lib/store'
-import type { MatchRequest, Profile, Proposal } from '../types'
-import { CandidateCard } from './CandidateCard'
+import { formatFee } from '../../config'
+import { timeAgo } from '../../lib/format'
+import { requestFit } from '../../lib/matching'
+import { latestRequestFor, proposalState, requestStatus, type RequestStatus } from '../../lib/requests'
+import { actions, findMember, type AppData } from '../../lib/store'
+import type { MatchRequest, Profile, Proposal } from '../../types'
+import { CandidateCard } from '../shared/CandidateCard'
+import { MatchmakerCard } from '../shared/MatchmakerCard'
 import { PaymentDialog } from './PaymentDialog'
-import { ProposalChip, StatusChip } from './StatusChip'
+import { ProposalChip, StatusChip } from '../shared/StatusChip'
 
 const TRACK = ['Request sent', 'Matchmaker searching', 'Matches proposed', 'Their answer', 'Matched'] as const
 const TRACK_POSITION: Record<RequestStatus, number> = {
@@ -196,7 +197,7 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
             <button type="button" className="btn ghost" onClick={onEditRequest}>
               Review my request
             </button>
-            <button type="button" className="btn primary" onClick={() => actions.submitRequest(me.id)}>
+            <button type="button" className="btn primary" onClick={() => actions.submitRequest()}>
               Send request to matchmaker
             </button>
           </div>
@@ -243,6 +244,12 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
         </div>
 
         <Tracker status={status!} />
+
+        {request.matchmaker ? (
+          <MatchmakerCard matchmaker={request.matchmaker} />
+        ) : (
+          <p className="muted small">A matchmaker will take on your request shortly — you’ll see who here.</p>
+        )}
 
         {status === 'matched' && (
           <div className="card banner success">

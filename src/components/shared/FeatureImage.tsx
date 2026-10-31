@@ -1,5 +1,5 @@
-import type { FeatureKey } from '../data/attributes'
-import { exampleKey, useAppData } from '../lib/store'
+import type { FeatureKey } from '../../data/attributes'
+import { exampleKey, useAppData } from '../../lib/store'
 import { FeatureArt } from './FeatureArt'
 import type { FigureSex } from './silhouettes'
 

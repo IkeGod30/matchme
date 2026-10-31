@@ -1,8 +1,8 @@
-import { allMembers, type AppData } from '../lib/store'
-import type { Profile } from '../types'
-import { Portrait } from './Portrait'
+import { useFeatured } from '../../lib/store'
+import type { Profile } from '../../types'
+import { Portrait } from '../shared/Portrait'
 
-/** Public card: only the fields a member agreed to show (see PUBLIC_FIELDS). */
+/** Public card: only the fields a member agreed to show publicly. */
 function PublicCard({ profile, isMe }: { profile: Profile; isMe: boolean }) {
   return (
     <article className="card public-card">
@@ -27,13 +27,13 @@ function PublicCard({ profile, isMe }: { profile: Profile; isMe: boolean }) {
 }
 
 interface FeaturedMembersProps {
-  data: AppData
   meId: string | null
+  signedIn: boolean
   onRequestMatch: () => void
 }
 
-export function FeaturedMembers({ data, meId, onRequestMatch }: FeaturedMembersProps) {
-  const featured = allMembers(data).filter((p) => p.publicListing)
+export function FeaturedMembers({ meId, signedIn, onRequestMatch }: FeaturedMembersProps) {
+  const featured = useFeatured()
 
   return (
     <section className="stack">
@@ -64,7 +64,7 @@ export function FeaturedMembers({ data, meId, onRequestMatch }: FeaturedMembersP
         matchmaker will check whether the interest is mutual. You only pay if it is.
         <div>
           <button type="button" className="btn primary" onClick={onRequestMatch}>
-            {meId ? 'Go to my request' : 'Request a match'}
+            {signedIn ? 'Go to my request' : 'Request a match'}
           </button>
         </div>
       </div>

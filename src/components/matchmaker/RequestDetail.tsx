@@ -1,22 +1,111 @@
 import { useMemo, useState } from 'react'
-import { timeAgo } from '../lib/format'
-import { isMutuallyCompatible, requestFit } from '../lib/matching'
-import { proposalState, requestStatus } from '../lib/requests'
-import { actions, allMembers, findMember, type AppData } from '../lib/store'
-import type { MatchRequest, Profile } from '../types'
-import { CandidateCard, MemberLine } from './CandidateCard'
-import { PhysicalSummary } from './PhysicalSummary'
-import { Portrait } from './Portrait'
-import { RequestSummary } from './RequestSummary'
-import { ProposalChip, StatusChip } from './StatusChip'
+import { timeAgo } from '../../lib/format'
+import { isMutuallyCompatible, requestFit } from '../../lib/matching'
+import { proposalState, requestStatus } from '../../lib/requests'
+import { actions, allMembers, findMember, type AppData, type MatchmakerData } from '../../lib/store'
+import type { MatchRequest, Profile } from '../../types'
+import { CandidateCard, MemberLine } from '../shared/CandidateCard'
+import { MatchmakerAvatar } from '../shared/MatchmakerCard'
+import { PhysicalSummary } from '../shared/PhysicalSummary'
+import { Portrait } from '../shared/Portrait'
+import { RequestSummary } from '../shared/RequestSummary'
+import { ProposalChip, StatusChip } from '../shared/StatusChip'
 
 interface RequestDetailProps {
   request: MatchRequest
   seeker: Profile
   data: AppData
+  matchmaker: MatchmakerData
 }
 
-export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
+/** Who looks after the request, with claim / hand over / release controls. */
+function AssignmentBar({ request, matchmaker }: { request: MatchRequest; matchmaker: MatchmakerData }) {
+  const myId = matchmaker.me.id
+  const owner = matchmaker.team.find((m) => m.id === request.matchmakerId)
+  return (
+    <div className={`card assignment${owner?.id === myId ? ' mine' : ''}`}>
+      {owner ? (
+        <>
+          <MatchmakerAvatar matchmaker={owner} size={36} />
+          <span>
+            {owner.id === myId ? <strong>You’re looking after this request</strong> : <>Looked after by <strong>{owner.displayName}</strong></>}
+            {request.assignedAt && <span className="muted small"> · since {timeAgo(request.assignedAt)}</span>}
+          </span>
+        </>
+      ) : (
+        <span>
+          <strong>Unassigned.</strong> <span className="muted small">No matchmaker has taken this request on yet.</span>
+        </span>
+      )}
+      <span className="assignment-actions">
+        {owner?.id !== myId && (
+          <button type="button" className="btn primary small-btn" onClick={() => actions.assignRequest(request.id, myId)}>
+            {owner ? 'Take over' : 'Take it on'}
+          </button>
+        )}
+        <label className="field inline small">
+          <span className="sr-only">Assign to</span>
+          <select
+            value={request.matchmakerId ?? ''}
+            onChange={(e) => actions.assignRequest(request.id, e.target.value || null)}
+          >
+            <option value="">Unassigned</option>
+            {matchmaker.team.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.id === myId ? `${m.displayName} (you)` : m.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+      </span>
+    </div>
+  )
+}
+
+/** Private notes matchmakers keep on a request; never shown to seekers. */
+function InternalNotes({ request, matchmaker }: { request: MatchRequest; matchmaker: MatchmakerData }) {
+  const [text, setText] = useState('')
+  const notes = request.internalNotes ?? []
+  const author = (id?: string) => matchmaker.team.find((m) => m.id === id)
+
+  async function add() {
+    if (!text.trim()) return
+    await actions.addInternalNote(request.id, text)
+    setText('')
+  }
+
+  return (
+    <article className="card internal-notes">
+      <h3>
+        Team notes <span className="badge applies">Private</span>
+      </h3>
+      <p className="muted small">Only matchmakers can see these — the seeker never does.</p>
+      {notes.length > 0 && (
+        <ul className="notes">
+          {notes.map((n) => {
+            const by = author(n.authorId)
+            return (
+              <li key={n.id}>
+                <p>{n.text}</p>
+                <span className="muted small">
+                  {by ? by.displayName : 'Former matchmaker'} · {timeAgo(n.at)}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <div className="note-input">
+        <textarea rows={2} value={text} placeholder="e.g. Called Kwame — prefers someone in Accra or Lagos." onChange={(e) => setText(e.target.value)} />
+        <button type="button" className="btn ghost small-btn" disabled={!text.trim()} onClick={add}>
+          Add note
+        </button>
+      </div>
+    </article>
+  )
+}
+
+export function RequestDetail({ request, seeker, data, matchmaker }: RequestDetailProps) {
   const status = requestStatus(request)
   /** Selected candidate id → note for the seeker. */
   const [picks, setPicks] = useState<Record<string, string>>({})
@@ -56,6 +145,7 @@ export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
 
   return (
     <div className="stack">
+      <AssignmentBar request={request} matchmaker={matchmaker} />
       <article className="card stack">
         <header className="candidate-top">
           <Portrait profile={seeker} size={96} />
@@ -81,6 +171,8 @@ export function RequestDetail({ request, seeker, data }: RequestDetailProps) {
           <PhysicalSummary physical={seeker.physical} gender={seeker.gender} />
         </details>
       </article>
+
+      <InternalNotes request={request} matchmaker={matchmaker} />
 
       {request.proposals.length > 0 && (
         <article className="card">

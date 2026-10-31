@@ -1,5 +1,5 @@
-import { GENDERS, figureFor, preferenceFeaturesFor, wantedOptions } from '../data/attributes'
-import type { PartnerRequest } from '../types'
+import { GENDERS, figureFor, preferenceFeaturesFor, wantedOptions } from '../../data/attributes'
+import type { PartnerRequest } from '../../types'
 import { FeatureImage } from './FeatureImage'
 
 const listOrOpen = (values: string[]) => (values.length ? values.join(', ') : 'Open to all')
@@ -33,6 +33,10 @@ export function RequestSummary({ request }: { request: PartnerRequest }) {
         <div>
           <dt>Profession</dt>
           <dd>{listOrOpen(request.professions)}</dd>
+        </div>
+        <div>
+          <dt>Relationship status</dt>
+          <dd>{listOrOpen(request.relationshipStatuses ?? [])}</dd>
         </div>
       </dl>
 

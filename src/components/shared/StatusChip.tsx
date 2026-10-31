@@ -1,5 +1,5 @@
-import { PROPOSAL_LABELS, STATUS_LABELS, proposalState, type RequestStatus } from '../lib/requests'
-import type { Proposal } from '../types'
+import { PROPOSAL_LABELS, STATUS_LABELS, proposalState, type RequestStatus } from '../../lib/requests'
+import type { Proposal } from '../../types'
 
 export function StatusChip({ status, audience }: { status: RequestStatus; audience: 'seeker' | 'matchmaker' }) {
   return (

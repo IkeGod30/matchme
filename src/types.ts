@@ -18,6 +18,7 @@ export interface PartnerRequest {
   races: string[]
   nationalities: string[]
   professions: string[]
+  relationshipStatuses: string[]
   physical: PhysicalPreferences
 }
 
@@ -30,6 +31,8 @@ export interface Profile {
   country: string
   nationality: string
   race: string
+  /** One of RELATIONSHIP_STATUSES. May be missing on profiles saved before it existed. */
+  relationshipStatus: string
   profession: string
   jobTitle: string
   bio: string
@@ -70,11 +73,60 @@ export interface Proposal {
 
 export type CandidateResponse = 'pending' | 'interested' | 'not_interested'
 
-/** A seeker's request to be matched, handled by the matchmaker. */
+/** A matchmaker as seekers see them. */
+export interface MatchmakerProfile {
+  id: string
+  displayName: string
+  bio: string
+  specialties: string[]
+  languages: string[]
+  photo?: string
+}
+
+/** A matchmaker as their teammates see them. */
+export interface TeamMember extends MatchmakerProfile {
+  email: string
+}
+
+/** Someone who applied to be a matchmaker and is waiting for approval. */
+export interface Application {
+  id: string
+  displayName: string
+  email: string
+  experience: string
+  languages: string[]
+  appliedAt: number
+}
+
+/** A private note matchmakers keep on a request. */
+export interface InternalNote {
+  id: string
+  authorId?: string
+  text: string
+  at: number
+}
+
+/** A pending invitation for a new matchmaker. */
+export interface Invite {
+  id: string
+  email?: string
+  createdBy?: string
+  createdAt: number
+  expiresAt: number
+}
+
+/** A seeker's request to be matched, handled by a matchmaker. */
 export interface MatchRequest {
   id: string
   seekerId: string
   createdAt: number
+  /** The matchmaker looking after this request; undefined while unassigned. */
+  matchmakerId?: string
+  assignedAt?: number
+  /** Included for the seeker: who is looking after their request. */
+  matchmaker?: MatchmakerProfile
+  /** Included for matchmakers only. */
+  internalNotes?: InternalNote[]
   /** Messages from the matchmaker to the seeker. */
   notes: { at: number; text: string }[]
   proposals: Proposal[]

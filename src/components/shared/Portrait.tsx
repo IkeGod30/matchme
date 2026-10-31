@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { Profile } from '../types'
+import type { Profile } from '../../types'
 import { PortraitArt } from './FeatureArt'
 
 function hueFor(name: string): number {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { GENDERS } from '../data/attributes'
-import type { Criterion, Fit } from '../lib/matching'
-import type { Profile } from '../types'
+import { GENDERS } from '../../data/attributes'
+import type { Criterion, Fit } from '../../lib/matching'
+import type { Profile } from '../../types'
 import { PhysicalSummary } from './PhysicalSummary'
 import { Portrait } from './Portrait'
 
@@ -40,6 +40,7 @@ export function MemberLine({ profile }: { profile: Profile }) {
     <>
       <p className="muted small">
         {gender} · {profile.jobTitle || profile.profession}
+        {profile.relationshipStatus && ` · ${profile.relationshipStatus}`}
         <br />
         {profile.city}, {profile.country} · {profile.nationality} · {profile.race}
       </p>

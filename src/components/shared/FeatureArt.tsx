@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react'
-import type { FeatureKey } from '../data/attributes'
-import type { PhysicalProfile } from '../types'
+import type { FeatureKey } from '../../data/attributes'
+import type { PhysicalProfile } from '../../types'
 import {
   BodyTypeArt,
   BottomShapeArt,
