@@ -1,5 +1,5 @@
 import express from 'express'
-import { currentUser } from '../auth.ts'
+import { signedInUsers } from '../auth.ts'
 import { canViewProfile, matchmakerRow, profileRow, publicCards } from '../data.ts'
 import { all, get } from '../db.ts'
 import { fail } from '../http.ts'
@@ -38,7 +38,9 @@ publicRoutes.get('/examples/photo/:key', (req, res) => {
 publicRoutes.get('/photos/:profileId', (req, res) => {
   const row = profileRow(req.params.profileId)
   // Same 404 whether the photo doesn't exist or the viewer isn't allowed to see it.
-  if (!row?.photo_file || !canViewProfile(currentUser(res), row.id)) return fail(res, 404, 'Not found.')
+  // Visible if a signed-in user of either realm may see it (public listings need no one signed in).
+  const allowed = (id: string) => row!.public_listing === 1 || signedInUsers(res).some((u) => canViewProfile(u, id))
+  if (!row?.photo_file || !allowed(row.id)) return fail(res, 404, 'Not found.')
   res.set('Cache-Control', row.public_listing ? 'public, max-age=3600' : 'private, max-age=3600')
   res.sendFile(photoPath(row.photo_file))
 })

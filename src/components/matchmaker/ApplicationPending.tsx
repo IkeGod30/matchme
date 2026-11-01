@@ -16,7 +16,7 @@ export function ApplicationPending({ user, onLogOut }: { user: User; onLogOut: (
       </p>
       <div className="form-actions">
         <button type="button" className="btn ghost" onClick={onLogOut}>
-          Log out
+          Log out of the backoffice
         </button>
       </div>
     </section>

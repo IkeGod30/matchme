@@ -30,6 +30,42 @@
   color: var(--accent);
 }
 
+/* The backoffice has its own header, so it's always clear which area (and session) you're in. */
+.topbar.backoffice {
+  border-bottom: 2px solid var(--accent);
+}
+
+.backoffice-tag {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.back-to-site {
+  align-self: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.back-to-site:hover {
+  color: var(--text);
+}
+
+.auth-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .tabs {
   display: flex;
   gap: 4px;
@@ -120,54 +156,6 @@
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-/* ---------- Seeker | Matchmaker toggle ---------- */
-.audience-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  width: min(560px, 100%);
-  margin: 8px auto 0;
-  padding: 6px;
-  border-radius: 20px;
-  background: var(--surface-2);
-}
-
-.audience-toggle button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 12px 10px;
-  border: 0;
-  border-radius: 14px;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.audience-toggle button strong {
-  font-size: 1.05rem;
-}
-
-.audience-toggle button span {
-  font-size: 0.82rem;
-}
-
-.audience-toggle button:hover {
-  color: var(--text);
-}
-
-.audience-toggle button[aria-selected='true'] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
-}
-
-.audience-toggle button[aria-selected='true'] strong {
-  color: var(--accent);
 }
 
 .auth-page {
@@ -494,11 +482,22 @@
   align-items: center;
 }
 
+/* Women | Men switch above the feature tabs. */
+.demo-sex {
+  width: min(240px, 100%);
+  margin-top: 20px;
+}
+
+.demo-sex button {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
 .demo-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 20px;
+  margin-top: 12px;
 }
 
 .demo-tabs button {
@@ -518,6 +517,134 @@
 
 .demo-picker h3 {
   margin-bottom: 14px;
+}
+
+/* Numbered tips under the feature-wizard demo, hung like a sign from a nail just below it. */
+.tips-hanger {
+  width: 100%;
+  max-width: 860px;
+  margin: -40px auto 0;
+}
+
+.tips-swing {
+  position: relative;
+  padding-top: 44px;
+  transform-origin: 50% 6px; /* pivots on the nail */
+  transform: rotate(-0.6deg);
+}
+
+.tips-swing.swing {
+  animation: tips-sway 2.4s ease-in-out;
+}
+
+@keyframes tips-sway {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(2.4deg);
+  }
+  45% {
+    transform: rotate(-1.8deg);
+  }
+  70% {
+    transform: rotate(0.9deg);
+  }
+  100% {
+    transform: rotate(-0.6deg);
+  }
+}
+
+.tips-nail {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--surface) 0 18%, var(--muted) 30%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.tips-cords {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  overflow: visible;
+}
+
+.tips-cords path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.tips-sign {
+  position: relative;
+  background: var(--accent-soft);
+  border-color: transparent;
+  box-shadow:
+    0 14px 30px -12px rgb(0 0 0 / 0.35),
+    var(--shadow);
+}
+
+.tips-sign h3 {
+  margin: 4px 0 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tips-swing.swing {
+    animation: none;
+  }
+}
+
+.tips-list {
+  list-style: none;
+  counter-reset: tip;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 28px;
+  margin: 0;
+  padding: 0;
+}
+
+.tips-list li {
+  counter-increment: tip;
+  position: relative;
+  padding-left: 38px;
+  line-height: 1.5;
+}
+
+.tips-list li::before {
+  content: counter(tip);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .tips-hanger {
+    margin-top: -24px;
+    padding: 0 8px; /* room for the corners when the sign sways */
+  }
+
+  .tips-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .reasons {
@@ -615,6 +742,12 @@
 
 .landing-footer .link-btn:hover {
   color: var(--accent);
+}
+
+/* Backoffice entry: present for staff, quiet for everyone else. */
+.landing-footer .staff-link {
+  color: var(--muted);
+  font-size: 0.875rem;
 }
 
 @media (max-width: 900px) {
@@ -931,21 +1064,6 @@
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-
-/* Secondary entry point for the other audience — deliberately quieter than Sign up. */
-.audience-link {
-  border: 0;
-  background: none;
-  padding: 6px 4px;
-  cursor: pointer;
-  color: var(--muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.audience-link:hover {
-  color: var(--accent);
 }
 
 .account {

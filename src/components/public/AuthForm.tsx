@@ -1,23 +1,25 @@
 import { useState, type FormEvent } from 'react'
-import { applyAsMatchmaker, logIn, signUp, type User } from '../../lib/store'
+import { applyAsMatchmaker, logIn, signUp, staffLogIn, type User } from '../../lib/store'
 import { TagInput } from '../shared/TagInput'
-import { AudienceToggle, type Audience } from './Landing'
+import type { Audience } from './Landing'
 
 const LANGUAGES = ['English', 'Yoruba', 'Igbo', 'Hausa', 'Pidgin', 'French', 'Arabic', 'Twi', 'Swahili', 'Spanish', 'Portuguese']
 
 interface AuthFormProps {
   mode: 'login' | 'signup'
+  /** 'matchmaker' = the staff log-in (/#staff) and the matchmaker application. */
   audience: Audience
-  onAudience: (audience: Audience) => void
   onSwitch: () => void
   onDone: (user: User | null) => void
   onCancel: () => void
   onForgot: () => void
+  /** Shown above the form, e.g. after being signed out of the other realm. */
+  notice?: string
 }
 
 const TITLES: Record<Audience, Record<AuthFormProps['mode'], string>> = {
-  seeker: { login: 'Seeker log in', signup: 'Create your seeker account' },
-  matchmaker: { login: 'Matchmaker log in', signup: 'Apply to be a matchmaker' },
+  seeker: { login: 'Log in', signup: 'Create your account' },
+  matchmaker: { login: 'Staff log in', signup: 'Apply to be a matchmaker' },
 }
 
 const INTROS: Record<Audience, Record<AuthFormProps['mode'], string>> = {
@@ -27,13 +29,14 @@ const INTROS: Record<Audience, Record<AuthFormProps['mode'], string>> = {
       'Your account keeps your profile and request private — only you, your matchmaker and the people you’re matched with can see them.',
   },
   matchmaker: {
-    login: 'Log in to your matchmaker dashboard, or check on your application.',
+    login:
+      'For the MatchMe matchmaking team only — a separate account from any seeker account. Logging in here signs this browser out of the seeker site.',
     signup:
       'Tell us about yourself. A matchmaker on the team reviews every application — you’ll see members and requests once you’re approved. Invited by a teammate? Use the link in your email instead.',
   },
 }
 
-export function AuthForm({ mode, audience, onAudience, onSwitch, onDone, onCancel, onForgot }: AuthFormProps) {
+export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot, notice }: AuthFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -59,7 +62,8 @@ export function AuthForm({ mode, audience, onAudience, onSwitch, onDone, onCance
         await signUp(email, password)
         onDone(null)
       } else {
-        onDone(await logIn(email, password))
+        // Each realm has its own log-in: a seeker account can't open the backoffice, and vice versa.
+        onDone(await (audience === 'matchmaker' ? staffLogIn : logIn)(email, password))
       }
     } catch (e) {
       setError((e as Error).message)
@@ -70,8 +74,12 @@ export function AuthForm({ mode, audience, onAudience, onSwitch, onDone, onCance
 
   return (
     <div className="auth-page">
-      <AudienceToggle audience={audience} onChange={onAudience} />
       <form className="card auth-form" onSubmit={submit}>
+        {notice && (
+          <p className="auth-notice small" role="status">
+            {notice}
+          </p>
+        )}
         <h2>{TITLES[audience][mode]}</h2>
         <p className="muted small">{INTROS[audience][mode]}</p>
 

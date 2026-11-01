@@ -13,6 +13,16 @@ import { api, ApiError } from './api'
 
 // Client-side cache of what the server lets the signed-in user see. Every action calls
 // the API and then reloads, so the server stays the single source of truth.
+//
+// Seekers (public site) and matchmakers (backoffice) are separate realms with separate
+// sessions, and only one is signed in per browser: the server ends the other realm's session
+// whenever one starts, and these helpers mirror that. `area` says which part of the app is
+// showing, and `data` always holds that area's view.
+
+/** State after a seeker session starts: the backoffice session has been ended. */
+const asSeeker = (user: User): Partial<State> => ({ seeker: user, staff: null, matchmaker: null })
+/** State after a staff session starts: the seeker session has been ended. */
+const asStaff = (user: User): Partial<State> => ({ staff: user, seeker: null, me: null })
 
 export type Role = 'seeker' | 'matchmaker'
 
@@ -40,13 +50,20 @@ export interface MatchmakerData {
   applications: Application[]
 }
 
+/** Which part of the app is showing: the public site (seekers) or the backoffice (matchmakers). */
+export type Area = 'site' | 'backoffice'
+
 interface State {
-  user: User | null
+  /** Signed-in seeker (public site realm). */
+  seeker: User | null
+  /** Signed-in matchmaker (backoffice realm). */
+  staff: User | null
+  area: Area
   /** True until the first session check finishes. */
   loading: boolean
   /** The signed-in seeker's own profile, if they've created one. */
   me: Profile | null
-  /** Set when the signed-in user is a matchmaker. */
+  /** Loaded in the backoffice for an approved matchmaker. */
   matchmaker: MatchmakerData | null
   data: AppData
   featured: Profile[]
@@ -56,7 +73,16 @@ export const exampleKey = (feature: string, option: string) => `${feature}:${opt
 
 const EMPTY: AppData = { profiles: [], requests: [], examples: {} }
 
-let state: State = { user: null, loading: true, me: null, matchmaker: null, data: EMPTY, featured: [] }
+let state: State = {
+  seeker: null,
+  staff: null,
+  area: 'site',
+  loading: true,
+  me: null,
+  matchmaker: null,
+  data: EMPTY,
+  featured: [],
+}
 const listeners = new Set<() => void>()
 
 function setState(patch: Partial<State>) {
@@ -98,29 +124,31 @@ async function loadExamples(): Promise<Record<string, string>> {
   return (await api<{ examples: Record<string, string> }>('GET', '/examples')).examples
 }
 
-/** Reloads everything the current user can see. */
+/** Reloads everything the signed-in user of the current area can see. */
 export async function refresh(): Promise<void> {
   const examples = await loadExamples().catch(() => state.data.examples)
-  const { user } = state
-  if (!user) {
-    setState({ me: null, matchmaker: null, data: { ...EMPTY, examples } })
-    return
-  }
   try {
-    if (user.role === 'matchmaker' && user.status === 'pending') {
+    if (state.area === 'backoffice') {
+      const { staff } = state
       // Applicants see nothing until a teammate approves them.
-      setState({ me: null, matchmaker: null, data: { ...EMPTY, examples } })
-    } else if (user.role === 'matchmaker') {
+      if (!staff || staff.status === 'pending') {
+        setState({ matchmaker: null, data: { ...EMPTY, examples } })
+        return
+      }
       const res = await api<MatchmakerData & { profiles: Profile[]; requests: MatchRequest[] }>('GET', '/matchmaker/state')
+      if (state.area !== 'backoffice') return // left the backoffice while loading
       setState({
-        me: null,
         matchmaker: { me: res.me, team: res.team, invites: res.invites, applications: res.applications },
         data: { profiles: res.profiles, requests: res.requests, examples },
       })
     } else {
+      if (!state.seeker) {
+        setState({ me: null, data: { ...EMPTY, examples } })
+        return
+      }
       const res = await api<SeekerState>('GET', '/seeker/state')
+      if (state.area !== 'site') return
       setState({
-        matchmaker: null,
         me: res.profile,
         data: {
           profiles: res.profile ? [res.profile, ...res.members] : res.members,
@@ -130,12 +158,19 @@ export async function refresh(): Promise<void> {
       })
     }
   } catch (error) {
-    // Session expired or revoked: fall back to logged out.
+    // Session expired or revoked: sign out of that realm only.
     if (error instanceof ApiError && error.status === 401) {
-      setState({ user: null, me: null, matchmaker: null, data: { ...EMPTY, examples } })
-    }
-      else throw error
+      if (state.area === 'backoffice') setState({ staff: null, matchmaker: null, data: { ...EMPTY, examples } })
+      else setState({ seeker: null, me: null, data: { ...EMPTY, examples } })
+    } else throw error
   }
+}
+
+/** Switches between the public site and the backoffice, loading that area's data. */
+export function setArea(area: Area): void {
+  if (state.area === area) return
+  setState({ area, data: { ...EMPTY, examples: state.data.examples } })
+  refresh().catch(console.error)
 }
 
 let started = false
@@ -147,8 +182,11 @@ export function useStartStore() {
     started = true
     void (async () => {
       try {
-        const { user } = await api<{ user: User | null }>('GET', '/auth/me')
-        setState({ user })
+        const [seeker, staff] = await Promise.all([
+          api<{ user: User | null }>('GET', '/auth/me'),
+          api<{ user: User | null }>('GET', '/auth/staff/me'),
+        ])
+        setState({ seeker: seeker.user, staff: staff.user })
         await refresh()
       } catch (error) {
         console.error(error)
@@ -157,9 +195,10 @@ export function useStartStore() {
       }
     })()
     const tick = () => {
-      if (!state.user || document.visibilityState !== 'visible') return
+      const user = state.area === 'backoffice' ? state.staff : state.seeker
+      if (!user || document.visibilityState !== 'visible') return
       // A pending matchmaker's status can change (approval), so re-check the session itself.
-      ;(state.user.status === 'pending' ? reloadSession() : refresh()).catch(console.error)
+      ;(user.status === 'pending' ? reloadStaffSession() : refresh()).catch(console.error)
     }
     window.addEventListener('focus', tick)
     window.setInterval(tick, 20_000)
@@ -229,45 +268,66 @@ function fromPublicCard(c: PublicCard): Profile {
   }
 }
 
-/* ---------- Auth ---------- */
+/* ---------- Auth: seekers (public site) ---------- */
 
 export async function signUp(email: string, password: string): Promise<void> {
   const { user } = await api<{ user: User }>('POST', '/auth/signup', { email, password })
-  setState({ user })
+  setState(asSeeker(user))
   await refresh()
 }
 
+/** Seeker log-in. Staff accounts are rejected here; they use staffLogIn. */
 export async function logIn(email: string, password: string): Promise<User> {
   const { user } = await api<{ user: User }>('POST', '/auth/login', { email, password })
-  setState({ user })
-  await refresh()
-  return user
-}
-
-/** Emails a reset link if the account exists. The server answers the same either way. */
-export async function requestPasswordReset(email: string): Promise<void> {
-  await api('POST', '/auth/forgot', { email })
-}
-
-/** Sets a new password using the token from a reset link, then signs the user in. */
-export async function resetPassword(token: string, password: string): Promise<User> {
-  const { user } = await api<{ user: User }>('POST', '/auth/reset', { token, password })
-  setState({ user })
+  setState(asSeeker(user))
   await refresh()
   return user
 }
 
 export async function logOut(): Promise<void> {
   await api('POST', '/auth/logout').catch(() => undefined)
-  setState({ user: null, me: null, matchmaker: null })
+  setState({ seeker: null, me: null })
   await refresh()
 }
 
-/** Re-checks the session, e.g. so a pending matchmaker sees when they've been approved. */
-export async function reloadSession(): Promise<void> {
-  const { user } = await api<{ user: User | null }>('GET', '/auth/me')
-  setState({ user })
+/* ---------- Auth: matchmakers (backoffice) ---------- */
+
+/** Staff log-in. Seeker accounts are rejected here, even with the right password. */
+export async function staffLogIn(email: string, password: string): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/staff/login', { email, password })
+  setState(asStaff(user))
   await refresh()
+  return user
+}
+
+export async function staffLogOut(): Promise<void> {
+  await api('POST', '/auth/staff/logout').catch(() => undefined)
+  setState({ staff: null, matchmaker: null })
+  await refresh()
+}
+
+/** Re-checks the staff session, e.g. so a pending matchmaker sees when they've been approved. */
+export async function reloadStaffSession(): Promise<void> {
+  const { user } = await api<{ user: User | null }>('GET', '/auth/staff/me')
+  setState({ staff: user })
+  await refresh()
+}
+
+/* ---------- Password reset (per realm) ---------- */
+
+export type Realm = 'seeker' | 'staff'
+
+/** Emails a reset link if an account exists in that realm. The server answers the same either way. */
+export async function requestPasswordReset(email: string, realm: Realm): Promise<void> {
+  await api('POST', '/auth/forgot', { email, realm })
+}
+
+/** Sets a new password using the token from a reset link, then signs in to that account's realm. */
+export async function resetPassword(token: string, password: string): Promise<Realm> {
+  const { user, realm } = await api<{ user: User; realm: Realm }>('POST', '/auth/reset', { token, password })
+  setState(realm === 'staff' ? asStaff(user) : asSeeker(user))
+  await refresh()
+  return realm
 }
 
 export interface MatchmakerApplication {
@@ -282,7 +342,7 @@ export interface MatchmakerApplication {
 /** Public application to become a matchmaker; the account stays pending until approved. */
 export async function applyAsMatchmaker(application: MatchmakerApplication): Promise<User> {
   const { user } = await api<{ user: User }>('POST', '/auth/apply-matchmaker', application)
-  setState({ user })
+  setState(asStaff(user))
   await refresh()
   return user
 }
@@ -294,7 +354,7 @@ export async function checkInvite(token: string): Promise<{ valid: boolean; emai
 
 export async function signUpMatchmaker(token: string, email: string, password: string, displayName: string): Promise<User> {
   const { user } = await api<{ user: User }>('POST', '/auth/signup-matchmaker', { token, email, password, displayName })
-  setState({ user })
+  setState(asStaff(user))
   await refresh()
   return user
 }
@@ -332,7 +392,7 @@ export const actions = {
   /** Deletes the signed-in seeker's account, profile and requests, then logs out. */
   async deleteProfile() {
     await perform(() => api('DELETE', '/seeker/account'))
-    setState({ user: null, me: null })
+    setState({ seeker: null, me: null })
     await refresh()
   },
 
@@ -351,7 +411,7 @@ export const actions = {
 
   /** The proposed person's answer — by the member themselves, or recorded by the matchmaker. */
   recordCandidateResponse(_requestId: string, proposalId: string, answer: Exclude<CandidateResponse, 'pending'>, comment = '') {
-    const scope = state.user?.role === 'matchmaker' ? 'matchmaker' : 'seeker'
+    const scope = state.area === 'backoffice' ? 'matchmaker' : 'seeker'
     return perform(() => api('POST', `/${scope}/proposals/${proposalId}/interest`, { answer, comment }))
   },
 
@@ -366,7 +426,7 @@ export const actions = {
   },
 
   closeRequest(requestId: string) {
-    const scope = state.user?.role === 'matchmaker' ? 'matchmaker' : 'seeker'
+    const scope = state.area === 'backoffice' ? 'matchmaker' : 'seeker'
     return perform(() => api('POST', `/${scope}/requests/${requestId}/close`))
   },
 

@@ -12,12 +12,15 @@ db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
 
+  -- Seekers (public site) and matchmakers (backoffice) are separate realms: the same email
+  -- can have one account in each, and each realm has its own log-in and session cookie.
   CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
-    email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    email         TEXT NOT NULL COLLATE NOCASE,
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker')),
-    created_at    INTEGER NOT NULL
+    created_at    INTEGER NOT NULL,
+    UNIQUE (email, role)
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
@@ -130,6 +133,39 @@ function addColumn(table: string, column: string, definition: string): boolean {
   if (columns.some((c) => c.name === column)) return false
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   return true
+}
+
+// Emails used to be unique across all accounts; now they're unique per realm (seeker / matchmaker).
+// SQLite can't change a constraint in place, so the table is rebuilt once.
+const usersSql = (db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get() as { sql: string })
+  .sql
+if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql)) {
+  db.exec('PRAGMA foreign_keys = OFF')
+  try {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE users_new (
+        id            TEXT PRIMARY KEY,
+        email         TEXT NOT NULL COLLATE NOCASE,
+        password_hash TEXT NOT NULL,
+        role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker')),
+        created_at    INTEGER NOT NULL,
+        UNIQUE (email, role)
+      );
+      INSERT INTO users_new (id, email, password_hash, role, created_at)
+        SELECT id, email, password_hash, role, created_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+    `)
+    const broken = db.prepare('PRAGMA foreign_key_check').all()
+    if (broken.length > 0) throw new Error(`Users migration broke ${broken.length} foreign key(s).`)
+    db.exec('COMMIT')
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK')
+    throw error
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON')
+  }
 }
 
 // Which matchmaker looks after a request (NULL = unassigned).

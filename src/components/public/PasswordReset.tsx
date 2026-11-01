@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { requestPasswordReset, resetPassword } from '../../lib/store'
+import { requestPasswordReset, resetPassword, type Realm } from '../../lib/store'
 
-export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+/** Password reset request for one realm: the public site's seekers, or backoffice staff. */
+export function ForgotPasswordForm({ realm, onBack }: { realm: Realm; onBack: () => void }) {
   const [email, setEmail] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -12,7 +13,7 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     setError(null)
     setBusy(true)
     try {
-      await requestPasswordReset(email)
+      await requestPasswordReset(email, realm)
       setSentTo(email.trim())
     } catch (e) {
       setError((e as Error).message)
@@ -41,7 +42,7 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
   return (
     <form className="card auth-form" onSubmit={submit}>
-      <h2>Forgot your password?</h2>
+      <h2>{realm === 'staff' ? 'Forgot your staff password?' : 'Forgot your password?'}</h2>
       <p className="muted small">Enter the email you signed up with and we’ll send you a link to choose a new one.</p>
       <label className="field">
         <span>Email</span>
@@ -66,7 +67,8 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
 interface ResetPasswordFormProps {
   token: string
-  onDone: () => void
+  /** Called with the realm the account belongs to, so the app can open the right area. */
+  onDone: (realm: Realm) => void
   onRequestNew: () => void
 }
 
@@ -82,8 +84,7 @@ export function ResetPasswordForm({ token, onDone, onRequestNew }: ResetPassword
     if (password !== confirm) return setError('Passwords don’t match.')
     setBusy(true)
     try {
-      await resetPassword(token, password)
-      onDone()
+      onDone(await resetPassword(token, password))
     } catch (e) {
       setError((e as Error).message)
     } finally {

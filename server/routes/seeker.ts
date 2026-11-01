@@ -44,7 +44,7 @@ function asMember(p: Profile): Profile {
 
 /** The signed-in seeker's profile id, or a 409 telling them to create one first. */
 function myProfileId(res: Response): string | undefined {
-  const row = profileRowForUser(currentUser(res)!.id)
+  const row = profileRowForUser(currentUser(res, 'seeker')!.id)
   if (!row) fail(res, 409, 'Create your profile first.')
   return row?.id
 }
@@ -61,7 +61,7 @@ function myRequest(res: Response, requestId: string): MatchRequest | undefined {
 }
 
 seekerRoutes.get('/state', (_req, res) => {
-  const row = profileRowForUser(currentUser(res)!.id)
+  const row = profileRowForUser(currentUser(res, 'seeker')!.id)
   if (!row) return res.json({ profile: null, requests: [], incoming: [], members: [] })
   const requests = withMatchmakers(requestsForSeeker(row.id))
   const incoming = incomingForCandidate(row.id)
@@ -70,7 +70,7 @@ seekerRoutes.get('/state', (_req, res) => {
 })
 
 seekerRoutes.put('/profile', (req, res) => {
-  const user = currentUser(res)!
+  const user = currentUser(res, 'seeker')!
   const body = req.body ?? {}
   const clean = validateProfile(body.profile)
   const existing = profileRowForUser(user.id)
@@ -102,11 +102,11 @@ seekerRoutes.put('/profile', (req, res) => {
 })
 
 seekerRoutes.delete('/account', (req, res) => {
-  const user = currentUser(res)!
+  const user = currentUser(res, 'seeker')!
   deletePhoto(profileRowForUser(user.id)?.photo_file)
   // Cascades to the profile, its requests and proposals, and sessions.
   run('DELETE FROM users WHERE id = ?', user.id)
-  endSession(req, res)
+  endSession(req, res, 'seeker')
   res.json({ ok: true })
 })
 

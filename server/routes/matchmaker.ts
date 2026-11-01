@@ -28,7 +28,7 @@ matchmakerRoutes.use(requireRole('matchmaker'))
 const INVITE_TTL_MS = 7 * 24 * 3600_000
 
 matchmakerRoutes.get('/state', (_req, res) => {
-  const me = currentUser(res)!
+  const me = currentUser(res, 'matchmaker')!
   res.json({
     me: teamMember(me.id),
     team: team(),
@@ -66,7 +66,7 @@ matchmakerRoutes.post('/requests/:id/internal-notes', (req, res) => {
     'INSERT INTO request_notes (id, request_id, author_id, text, created_at) VALUES (?, ?, ?, ?, ?)',
     randomUUID(),
     request.id,
-    currentUser(res)!.id,
+    currentUser(res, 'matchmaker')!.id,
     text,
     Date.now(),
   )
@@ -104,7 +104,7 @@ matchmakerRoutes.post('/requests/:id/proposals', (req, res) => {
     if (text) run('UPDATE requests SET notes = ? WHERE id = ?', JSON.stringify([...request.notes, { at: now, text }]), request.id)
     // Whoever sends matches on an unassigned request takes it on.
     if (!request.matchmakerId) {
-      run('UPDATE requests SET matchmaker_id = ?, assigned_at = ? WHERE id = ?', currentUser(res)!.id, now, request.id)
+      run('UPDATE requests SET matchmaker_id = ?, assigned_at = ? WHERE id = ?', currentUser(res, 'matchmaker')!.id, now, request.id)
     }
   })
   res.status(201).json({ ok: true })
@@ -122,7 +122,7 @@ matchmakerRoutes.post('/requests/:id/close', (req, res) => {
 /* ---------- My profile ---------- */
 
 matchmakerRoutes.put('/profile', (req, res) => {
-  const me = currentUser(res)!
+  const me = currentUser(res, 'matchmaker')!
   const body = req.body ?? {}
   const displayName = optionalText(body.displayName, 'Name', 60)
   if (!displayName) return fail(res, 400, 'Enter the name seekers will see.')
@@ -157,7 +157,7 @@ matchmakerRoutes.put('/profile', (req, res) => {
 /* ---------- Team & invitations ---------- */
 
 matchmakerRoutes.post('/invites', (req, res) => {
-  const me = currentUser(res)!
+  const me = currentUser(res, 'matchmaker')!
   const email = optionalText(req.body?.email, 'Email', 200)?.toLowerCase() ?? null
   if (email && !EMAIL.test(email)) return fail(res, 400, 'Enter a valid email address, or leave it empty.')
   if (email && get('SELECT 1 FROM users WHERE email = ?', email)) return fail(res, 409, 'Someone already has an account with that email.')
@@ -192,7 +192,7 @@ matchmakerRoutes.post('/applications/:id/approve', (req, res) => {
   const applicant = matchmakerRow(req.params.id)
   if (!applicant || applicant.approved_at) return fail(res, 404, 'Application not found.')
   run('UPDATE matchmakers SET approved_at = ? WHERE user_id = ?', Date.now(), applicant.user_id)
-  sendEmail(applicationDecisionEmail(applicant.email, applicant.display_name, true, `${APP_URL}/`)).catch((error) =>
+  sendEmail(applicationDecisionEmail(applicant.email, applicant.display_name, true, `${APP_URL}/#staff`)).catch((error) =>
     console.error('Could not send approval email:', error),
   )
   res.json({ ok: true })

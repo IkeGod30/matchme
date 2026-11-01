@@ -14,14 +14,32 @@ once a match is mutual.
   page ("Request a match with …"); the member is added to their open request (or opens one) and
   shown to the matchmaker at the top of the candidate list. Screens: `src/components/seeker/`,
   API: `server/routes/seeker.ts`.
-- **Matchmakers** either apply publicly (header → For matchmakers → Apply) or are invited by an
-  existing matchmaker. Applicants can log in but see nothing until a matchmaker approves them in
-  Dashboard → Team; invited matchmakers are approved immediately. They take on requests, propose
-  matches, keep private team notes, browse all members and manage example photos.
+- **Matchmakers** are back-office staff. They either apply publicly (footer → Become a matchmaker,
+  `/#join` — hidden from signed-in seekers, who are shown the home page instead) or are invited by
+  an existing matchmaker. Applicants can log in but see nothing until a
+  matchmaker approves them in Dashboard → Team; invited matchmakers are approved immediately. They
+  take on requests, propose matches, keep private team notes, browse all members and manage example
+  photos.
   Screens: `src/components/matchmaker/`, API: `server/routes/matchmaker.ts`.
 
-The landing page is written for seekers; matchmakers reach their side through **For matchmakers**
-in the header (or the footer link). The log-in / sign-up form has a **Seeker | Matchmaker** toggle.
+The public site (landing, header, log-in / sign-up) is written for seekers. Matchmakers work in
+the **backoffice** at `/#staff` (footer → Staff log in), which has its own header.
+
+Seekers and matchmakers are **separate authentication realms**:
+
+| | Public site (seekers) | Backoffice (matchmakers) |
+|---|---|---|
+| Log in / out / me | `/api/auth/login`, `/logout`, `/me` | `/api/auth/staff/login`, `/staff/logout`, `/staff/me` |
+| Session cookie | `mm_session` | `mm_staff_session` |
+
+A seeker account can't log in to the backoffice and a matchmaker account can't log in to the
+public site. Only one is signed in per browser, in both directions, and only on an explicit
+action: clicking into the backoffice (Staff log in, Matchmaker log in, Apply) signs a seeker out
+before the staff log-in, and "Sign out & go to site" signs staff out. Loading a page — a typed
+URL, a reload, another tab — signs no one out; each area simply ignores the other realm's
+session. The server enforces the rule on every log-in: starting a session in one realm (log-in,
+sign-up, matchmaker application or invitation, password reset) ends the other realm's session. An email address is unique per realm, so the same person may have a seeker
+account and a separate staff account. Password resets are per realm too.
 
 Public pages (landing, featured members, login, matchmaker sign-up) are in `src/components/public/`;
 pieces both sides use (pictures, cards, chips) are in `src/components/shared/`.

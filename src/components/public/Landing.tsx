@@ -1,8 +1,9 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { BODY_FEATURES, type FeatureKey } from '../../data/attributes'
 import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
 import { FeaturePicker } from '../shared/FeaturePicker'
 import { Portrait } from '../shared/Portrait'
+import type { FigureSex } from '../shared/silhouettes'
 
 const STEPS = [
   {
@@ -42,14 +43,35 @@ const FEE_COMPARISON = [
   },
 ]
 
-const DEMO_FEATURES: FeatureKey[] = [
-  'bodyType',
-  'bustSize',
-  'buttSize',
-  'buttShape',
-  'lips',
-  'hairLength',
-  'eyeColor',
+/** Feature-wizard demo: sample pictures for women and for men, as the real wizard shows them. */
+const DEMO_FEATURES: Record<FigureSex, FeatureKey[]> = {
+  female: ['bodyType', 'bustSize', 'buttSize', 'buttShape', 'lips', 'hairLength', 'eyeColor'],
+  male: ['bodyType', 'height', 'chest', 'facialHair', 'hairLength', 'lips', 'eyeColor'],
+}
+
+const DEMO_SEXES: { value: FigureSex; label: string }[] = [
+  { value: 'female', label: 'Women' },
+  { value: 'male', label: 'Men' },
+]
+
+/** Shown under the feature-wizard demo. */
+const FEATURE_TIPS = [
+  {
+    title: 'Stay open',
+    body: 'Bodily feature preferences are useful, but people with more flexible preferences stand a better chance of finding a good partner.',
+  },
+  {
+    title: 'Prioritise what really matters',
+    body: 'Pick the two or three features you care about most and choose “No preference” for the rest — your matchmaker can then look at a much wider group of people.',
+  },
+  {
+    title: 'Say more than looks',
+    body: 'Your message about the person you want carries real weight. Describe their values, lifestyle and the relationship you hope for, not just appearance.',
+  },
+  {
+    title: 'Describe yourself honestly',
+    body: 'Matching works both ways: an accurate description of you means you’re introduced to people who are genuinely looking for someone like you.',
+  },
 ]
 
 const REASONS = [
@@ -120,21 +142,54 @@ const FAQ = [
 
 const HERO_NAMES = ['Funmilayo', 'Daniel', 'Layla']
 
+/** Which log-in / sign-up form to show: the public seeker one or the staff one. */
 export type Audience = 'seeker' | 'matchmaker'
 
-interface SideProps {
+interface PageProps {
   ctaLabel: string
   onStart: () => void
   /** Shown only to visitors who aren't signed in. */
   onLogin?: () => void
   onFeatured: () => void
-  onSwitch: () => void
 }
 
-function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: SideProps) {
-  const [demoKey, setDemoKey] = useState<FeatureKey>(DEMO_FEATURES[0])
+interface LandingProps extends PageProps {
+  /** Matchmaker recruitment — a quiet footer link, like a Careers page. Hidden for signed-in seekers. */
+  onJoin?: () => void
+  /** Backoffice log-in for matchmakers. */
+  onStaffLogin?: () => void
+}
+
+/** The public home page, written for seekers. */
+export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onStaffLogin }: LandingProps) {
+  const [demoSex, setDemoSex] = useState<FigureSex>('female')
+  // The hanging tips sign sways once, the first time it scrolls into view.
+  const tipsRef = useRef<HTMLDivElement>(null)
+  const [tipsSwing, setTipsSwing] = useState(false)
+  useEffect(() => {
+    const el = tipsRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setTipsSwing(true)
+        observer.disconnect()
+      },
+      { threshold: 0.4 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const [demoKey, setDemoKey] = useState<FeatureKey>(DEMO_FEATURES.female[0])
+  // Picks are kept per figure, so switching between women and men doesn't mix them.
   const [demoPicks, setDemoPicks] = useState<Record<string, string[]>>({})
   const demoFeature = BODY_FEATURES.find((f) => f.key === demoKey)!
+  const demoPickKey = `${demoSex}:${demoKey}`
+
+  function switchDemoSex(next: FigureSex) {
+    setDemoSex(next)
+    if (!DEMO_FEATURES[next].includes(demoKey)) setDemoKey(DEMO_FEATURES[next][0])
+  }
   const heroProfiles = HERO_NAMES.map((n) => SAMPLE_PROFILES.find((p) => p.name === n)).filter((p) => !!p)
 
   return (
@@ -153,7 +208,7 @@ function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: Sid
             </button>
             {onLogin && (
               <button type="button" className="btn ghost large" onClick={onLogin}>
-                Seeker log in
+                Log in
               </button>
             )}
           </div>
@@ -238,8 +293,21 @@ function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: Sid
             Words like “athletic” or “full lips” mean different things to different people. So you choose from picture
             examples, one feature at a time. Try it:
           </p>
-          <div className="demo-tabs" role="tablist">
-            {DEMO_FEATURES.map((key) => (
+          <div className="segmented demo-sex" role="tablist" aria-label="Show features for">
+            {DEMO_SEXES.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                role="tab"
+                aria-selected={demoSex === s.value}
+                onClick={() => switchDemoSex(s.value)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div className="demo-tabs" role="tablist" aria-label="Feature">
+            {DEMO_FEATURES[demoSex].map((key) => (
               <button
                 key={key}
                 type="button"
@@ -255,14 +323,35 @@ function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: Sid
         <div className="card demo-picker">
           <h3>{demoFeature.question}</h3>
           <FeaturePicker
-            key={demoKey}
+            key={demoPickKey}
             feature={demoFeature}
+            figure={demoSex}
             multiple
-            selected={demoPicks[demoKey] ?? []}
-            onChange={(values) => setDemoPicks((prev) => ({ ...prev, [demoKey]: values }))}
+            selected={demoPicks[demoPickKey] ?? []}
+            onChange={(values) => setDemoPicks((prev) => ({ ...prev, [demoPickKey]: values }))}
           />
         </div>
       </section>
+
+      <div className="tips-hanger" ref={tipsRef}>
+        <div className={`tips-swing${tipsSwing ? ' swing' : ''}`}>
+          <span className="tips-nail" aria-hidden="true" />
+          <svg className="tips-cords" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M50 1 L20 40 M50 1 L80 40" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <aside className="card tips-sign" aria-labelledby="feature-tips-title">
+            <span className="eyebrow">💡 Tips</span>
+            <h3 id="feature-tips-title">Getting the most from your feature preferences</h3>
+            <ol className="tips-list">
+              {FEATURE_TIPS.map((tip) => (
+                <li key={tip.title}>
+                  <strong>{tip.title}.</strong> <span className="muted">{tip.body}</span>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        </div>
+      </div>
 
       <section className="landing-section">
         <h2>Why a matchmaker?</h2>
@@ -323,9 +412,16 @@ function SeekerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: Sid
           <button type="button" className="link-btn" onClick={onFeatured}>
             See featured members
           </button>
-          <button type="button" className="link-btn" onClick={onSwitch}>
-            Are you a matchmaker? See the matchmaker side →
-          </button>
+          {onJoin && (
+            <button type="button" className="link-btn" onClick={onJoin}>
+              Become a matchmaker
+            </button>
+          )}
+          {onStaffLogin && (
+            <button type="button" className="link-btn staff-link" onClick={onStaffLogin}>
+              Staff log in
+            </button>
+          )}
         </span>
       </footer>
     </div>
@@ -378,7 +474,14 @@ const MM_FAQ = [
   },
 ]
 
-function MatchmakerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }: SideProps) {
+/** Matchmaker recruitment (/#join), reached from the home page's footer. */
+export function MatchmakerLanding({
+  ctaLabel,
+  onStart,
+  onLogin,
+  onFeatured,
+  onSwitch,
+}: PageProps & { onSwitch: () => void }) {
   return (
     <div className="landing">
       <section className="landing-hero">
@@ -508,64 +611,6 @@ function MatchmakerLanding({ ctaLabel, onStart, onLogin, onFeatured, onSwitch }:
           </button>
         </span>
       </footer>
-    </div>
-  )
-}
-
-/* ---------- Page with the Seeker | Matchmaker toggle ---------- */
-
-export function AudienceToggle({ audience, onChange }: { audience: Audience; onChange: (audience: Audience) => void }) {
-  return (
-    <div className="audience-toggle" role="tablist" aria-label="I am a">
-      <button type="button" role="tab" aria-selected={audience === 'seeker'} onClick={() => onChange('seeker')}>
-        <strong>Seeker</strong>
-        <span>I’m looking for a partner</span>
-      </button>
-      <button type="button" role="tab" aria-selected={audience === 'matchmaker'} onClick={() => onChange('matchmaker')}>
-        <strong>Matchmaker</strong>
-        <span>I bring people together</span>
-      </button>
-    </div>
-  )
-}
-
-interface LandingProps {
-  audience: Audience
-  onAudience: (audience: Audience) => void
-  signedIn: boolean
-  seekerCta: string
-  onSeekerStart: () => void
-  matchmakerCta: string
-  onMatchmakerStart: () => void
-  onLogin: (audience: Audience) => void
-  onFeatured: () => void
-}
-
-export function Landing(props: LandingProps) {
-  const { audience, onAudience, signedIn, onLogin, onFeatured } = props
-  const switchTo = (next: Audience) => {
-    onAudience(next)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-  return (
-    <div className="stack">
-      {audience === 'seeker' ? (
-        <SeekerLanding
-          ctaLabel={props.seekerCta}
-          onStart={props.onSeekerStart}
-          onLogin={signedIn ? undefined : () => onLogin('seeker')}
-          onFeatured={onFeatured}
-          onSwitch={() => switchTo('matchmaker')}
-        />
-      ) : (
-        <MatchmakerLanding
-          ctaLabel={props.matchmakerCta}
-          onStart={props.onMatchmakerStart}
-          onLogin={signedIn ? undefined : () => onLogin('matchmaker')}
-          onFeatured={onFeatured}
-          onSwitch={() => switchTo('seeker')}
-        />
-      )}
     </div>
   )
 }

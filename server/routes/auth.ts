@@ -1,12 +1,25 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import express from 'express'
-import { createUser, currentUser, endSession, hashPassword, rateLimit, startSession, userById, verifyPassword } from '../auth.ts'
+import {
+  createUser,
+  currentUser,
+  endSession,
+  hashPassword,
+  rateLimit,
+  startSession,
+  userById,
+  verifyPassword,
+  type Role,
+} from '../auth.ts'
 import { all, get, run, transaction } from '../db.ts'
 import { matchmakerApplicationEmail, passwordChangedEmail, passwordResetEmail } from '../emails.ts'
 import { APP_URL, EMAIL, fail, optionalText, sha256, textList } from '../http.ts'
 import { sendEmail } from '../mailer.ts'
 
-/** Sign-up, login, logout, password reset and matchmaker sign-up by invitation. */
+/**
+ * Sign-up, login, logout, password reset and matchmaker sign-up by invitation.
+ * Seekers (public site) and matchmakers (backoffice, /staff/*) are separate realms.
+ */
 export const authRoutes = express.Router()
 
 function validCredentials(email: unknown, password: unknown): string | null {
@@ -15,41 +28,54 @@ function validCredentials(email: unknown, password: unknown): string | null {
   return null
 }
 
-const emailTaken = (email: string) => !!get('SELECT 1 FROM users WHERE email = ?', email.trim().toLowerCase())
+/** Emails are unique per realm: a seeker and a matchmaker account may share one. */
+const emailTaken = (email: string, role: Role) =>
+  !!get('SELECT 1 FROM users WHERE email = ? AND role = ?', email.trim().toLowerCase(), role)
 
 /** Seekers sign up freely. Matchmakers can only join through an invitation (below). */
 authRoutes.post('/signup', rateLimit, async (req, res) => {
   const { email, password } = req.body ?? {}
   const problem = validCredentials(email, password)
   if (problem) return fail(res, 400, problem)
-  if (emailTaken(email)) return fail(res, 409, 'An account with that email already exists. Try logging in.')
+  if (emailTaken(email, 'seeker')) return fail(res, 409, 'An account with that email already exists. Try logging in.')
   const user = await createUser(email, password, 'seeker')
-  startSession(res, user.id)
+  startSession(req, res, user)
   res.status(201).json({ user })
 })
 
-authRoutes.post('/login', rateLimit, async (req, res) => {
-  const { email, password } = req.body ?? {}
-  if (typeof email !== 'string' || typeof password !== 'string') return fail(res, 400, 'Enter your email and password.')
-  const row = get<{ id: string; password_hash: string }>(
-    'SELECT id, password_hash FROM users WHERE email = ?',
-    email.trim().toLowerCase(),
-  )
-  if (!row || !(await verifyPassword(password, row.password_hash))) {
-    return fail(res, 401, 'Email or password is incorrect.')
-  }
-  startSession(res, row.id)
-  res.json({ user: userById(row.id) })
-})
+/**
+ * Log-in, log-out and "who am I" for one realm. A log-in only matches accounts of its own
+ * realm; any other account gets the same answer as a wrong password.
+ */
+function realmRoutes(prefix: string, role: Role) {
+  authRoutes.post(`${prefix}/login`, rateLimit, async (req, res) => {
+    const { email, password } = req.body ?? {}
+    if (typeof email !== 'string' || typeof password !== 'string') return fail(res, 400, 'Enter your email and password.')
+    const row = get<{ id: string; password_hash: string }>(
+      'SELECT id, password_hash FROM users WHERE email = ? AND role = ?',
+      email.trim().toLowerCase(),
+      role,
+    )
+    if (!row || !(await verifyPassword(password, row.password_hash))) {
+      return fail(res, 401, 'Email or password is incorrect.')
+    }
+    // Signing in to the backoffice signs the browser out of the public site first.
+    startSession(req, res, { id: row.id, role })
+    res.json({ user: userById(row.id) })
+  })
 
-authRoutes.post('/logout', (req, res) => {
-  endSession(req, res)
-  res.json({ ok: true })
-})
+  authRoutes.post(`${prefix}/logout`, (req, res) => {
+    endSession(req, res, role)
+    res.json({ ok: true })
+  })
 
-authRoutes.get('/me', (_req, res) => {
-  res.json({ user: currentUser(res) ?? null })
-})
+  authRoutes.get(`${prefix}/me`, (_req, res) => {
+    res.json({ user: currentUser(res, role) ?? null })
+  })
+}
+
+realmRoutes('', 'seeker')
+realmRoutes('/staff', 'matchmaker')
 
 /* ---------- Matchmaker sign-up by invitation ---------- */
 
@@ -78,7 +104,7 @@ authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
   if (typeof displayName !== 'string' || !displayName.trim() || displayName.trim().length > 60) {
     return fail(res, 400, 'Enter the name seekers will see (up to 60 characters).')
   }
-  if (emailTaken(email)) return fail(res, 409, 'An account with that email already exists.')
+  if (emailTaken(email, 'matchmaker')) return fail(res, 409, 'A staff account with that email already exists.')
 
   const passwordHash = await hashPassword(password)
   const userId = randomUUID()
@@ -106,7 +132,7 @@ authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
     return true
   })
   if (!ok) return fail(res, 400, 'This invitation has already been used.')
-  startSession(res, userId)
+  startSession(req, res, { id: userId, role: 'matchmaker' })
   res.status(201).json({ user: userById(userId) })
 })
 
@@ -130,7 +156,9 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
     return fail(res, 400, 'Tell us a little about your matchmaking experience (at least 30 characters).')
   }
   const langs = textList(languages, 'Languages', 10, 40)
-  if (emailTaken(email)) return fail(res, 409, 'An account with that email already exists. Try logging in.')
+  if (emailTaken(email, 'matchmaker')) {
+    return fail(res, 409, 'A staff account with that email already exists. Try the staff log-in.')
+  }
 
   const userId = randomUUID()
   const now = Date.now()
@@ -161,12 +189,12 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
     `SELECT u.email FROM users u JOIN matchmakers m ON m.user_id = u.id WHERE m.approved_at IS NOT NULL`,
   )
   for (const member of team) {
-    sendEmail(matchmakerApplicationEmail(member.email, name, `${APP_URL}/`)).catch((error) =>
+    sendEmail(matchmakerApplicationEmail(member.email, name, `${APP_URL}/#staff`)).catch((error) =>
       console.error('Could not send application email:', error),
     )
   }
 
-  startSession(res, userId)
+  startSession(req, res, { id: userId, role: 'matchmaker' })
   res.status(201).json({ user: userById(userId) })
 })
 
@@ -177,9 +205,15 @@ const RESET_TTL_MS = 60 * 60_000
 const RESET_RESEND_MS = 2 * 60_000
 
 authRoutes.post('/forgot', rateLimit, (req, res) => {
-  const { email } = req.body ?? {}
+  const { email, realm } = req.body ?? {}
   if (typeof email !== 'string' || !EMAIL.test(email.trim())) return fail(res, 400, 'Enter a valid email address.')
-  const user = get<{ id: string; email: string }>('SELECT id, email FROM users WHERE email = ?', email.trim().toLowerCase())
+  // Resets are per realm too: the staff form only ever resets a staff account.
+  const role: Role = realm === 'staff' ? 'matchmaker' : 'seeker'
+  const user = get<{ id: string; email: string }>(
+    'SELECT id, email FROM users WHERE email = ? AND role = ?',
+    email.trim().toLowerCase(),
+    role,
+  )
   if (user) {
     const now = Date.now()
     run('DELETE FROM password_resets WHERE user_id = ? AND (used_at IS NOT NULL OR expires_at < ?)', user.id, now)
@@ -223,8 +257,9 @@ authRoutes.post('/reset', rateLimit, async (req, res) => {
   })
   if (!ok) return fail(res, 400, expired)
 
-  startSession(res, reset.user_id)
+  // Signs in to the realm the account belongs to.
   const user = userById(reset.user_id)!
+  startSession(req, res, user)
   sendEmail(passwordChangedEmail(user.email)).catch((error) => console.error('Could not send password changed email:', error))
-  res.json({ user })
+  res.json({ user, realm: user.role === 'matchmaker' ? 'staff' : 'seeker' })
 })

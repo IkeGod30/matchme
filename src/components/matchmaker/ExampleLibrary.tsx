@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from 'react'
 import { BODY_FEATURES, featureGenders, genderNoun, type FeatureKey } from '../../data/attributes'
 import { resizeImage } from '../../lib/format'
 import { actions, exampleKey, type AppData } from '../../lib/store'
+import { BUILT_IN_EXAMPLES } from '../../data/featureExamples'
 import { FeatureImage } from '../shared/FeatureImage'
 
 const TOTAL_OPTIONS = BODY_FEATURES.reduce((sum, f) => sum + f.options.length, 0)
@@ -64,12 +65,14 @@ export function ExampleLibrary({ data }: { data: AppData }) {
             </h3>
             <div className="pic-grid example-grid">
               {feature.options.map((option) => {
-                const hasPhoto = !!data.examples[exampleKey(feature.key, option)]
+                const key = exampleKey(feature.key, option)
+                const hasPhoto = !!data.examples[key]
+                const builtIn = !hasPhoto && !!BUILT_IN_EXAMPLES[key]
                 return (
                   <div key={option} className="example-slot">
                     <FeatureImage feature={feature.key} option={option} />
                     <span className="pic-label">{option}</span>
-                    <span className="pic-note">{hasPhoto ? 'Photo' : 'Illustration'}</span>
+                    <span className="pic-note">{hasPhoto ? 'Photo' : builtIn ? 'Built-in photo' : 'Illustration'}</span>
                     <label className="btn ghost small-btn">
                       {hasPhoto ? 'Replace' : 'Upload photo'}
                       <input type="file" accept="image/*" hidden onChange={(e) => upload(feature.key, option, e)} />

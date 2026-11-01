@@ -5,6 +5,11 @@ import { get, run } from './db.ts'
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>
 
+/**
+ * Each role is its own realm: seekers use the public site, matchmakers the backoffice.
+ * The realms have separate log-ins and separate session cookies, so an account only ever
+ * works in its own realm and both can be signed in side by side in one browser.
+ */
 export type Role = 'seeker' | 'matchmaker'
 
 export interface User {
@@ -24,7 +29,8 @@ export function userById(id: string): User | undefined {
   return get<User>(`SELECT ${USER_COLUMNS} FROM users u WHERE u.id = ?`, id)
 }
 
-const SESSION_COOKIE = 'mm_session'
+const SESSION_COOKIES: Record<Role, string> = { seeker: 'mm_session', matchmaker: 'mm_staff_session' }
+const ROLES = Object.keys(SESSION_COOKIES) as Role[]
 const SESSION_DAYS = 30
 
 export async function hashPassword(password: string): Promise<string> {
@@ -54,11 +60,16 @@ export async function createUser(email: string, password: string, role: Role): P
   return user
 }
 
-export function startSession(res: Response, userId: string) {
+/**
+ * Signs the user in to their own realm (the session cookie is chosen by their role). Only one
+ * realm is signed in per browser: starting a session in one ends any session in the other.
+ */
+export function startSession(req: Request, res: Response, user: Pick<User, 'id' | 'role'>) {
+  for (const other of ROLES) if (other !== user.role) endSession(req, res, other)
   const token = randomBytes(32).toString('base64url')
   const maxAge = SESSION_DAYS * 24 * 3600 * 1000
-  run('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)', token, userId, Date.now() + maxAge)
-  res.cookie(SESSION_COOKIE, token, {
+  run('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)', token, user.id, Date.now() + maxAge)
+  res.cookie(SESSION_COOKIES[user.role], token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -67,10 +78,11 @@ export function startSession(res: Response, userId: string) {
   })
 }
 
-export function endSession(req: Request, res: Response) {
-  const token = readCookie(req, SESSION_COOKIE)
+/** Signs out of one realm only; a session in the other realm is left alone. */
+export function endSession(req: Request, res: Response, role: Role) {
+  const token = readCookie(req, SESSION_COOKIES[role])
   if (token) run('DELETE FROM sessions WHERE token = ?', token)
-  res.clearCookie(SESSION_COOKIE, { path: '/' })
+  res.clearCookie(SESSION_COOKIES[role], { path: '/' })
 }
 
 function readCookie(req: Request, name: string): string | undefined {
@@ -81,32 +93,44 @@ function readCookie(req: Request, name: string): string | undefined {
   return undefined
 }
 
-/** Attaches the signed-in user (if any) to res.locals.user. */
+/**
+ * Attaches the signed-in user of each realm (if any) to res.locals.users. A session only
+ * counts in the realm whose cookie carries it and only for a user of that role, so e.g. a
+ * matchmaker's session in the seeker cookie (from before the realms were split) is dropped.
+ */
 export function loadUser(req: Request, res: Response, next: NextFunction) {
-  const token = readCookie(req, SESSION_COOKIE)
-  if (token) {
+  const users: Partial<Record<Role, User>> = {}
+  for (const role of ROLES) {
+    const token = readCookie(req, SESSION_COOKIES[role])
+    if (!token) continue
     const user = get<User & { expires_at: number }>(
       `SELECT ${USER_COLUMNS}, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
       token,
     )
-    if (user && user.expires_at > Date.now()) {
-      res.locals.user = { id: user.id, email: user.email, role: user.role, status: user.status } satisfies User
+    if (user && user.expires_at > Date.now() && user.role === role) {
+      users[role] = { id: user.id, email: user.email, role: user.role, status: user.status }
     } else if (user) {
       run('DELETE FROM sessions WHERE token = ?', token)
     }
   }
+  res.locals.users = users
   next()
 }
 
-export function currentUser(res: Response): User | undefined {
-  return res.locals.user as User | undefined
+/** The signed-in user of one realm. */
+export function currentUser(res: Response, role: Role): User | undefined {
+  return (res.locals.users as Partial<Record<Role, User>> | undefined)?.[role]
+}
+
+/** Every signed-in user on this request (at most one per realm). */
+export function signedInUsers(res: Response): User[] {
+  return Object.values((res.locals.users ?? {}) as Partial<Record<Role, User>>)
 }
 
 export function requireRole(role: Role) {
   return (_req: Request, res: Response, next: NextFunction) => {
-    const user = currentUser(res)
+    const user = currentUser(res, role)
     if (!user) return res.status(401).json({ error: 'Please log in.' })
-    if (user.role !== role) return res.status(403).json({ error: 'You don’t have access to this.' })
     // Matchmakers who applied publicly see nothing until a teammate approves them.
     if (user.status === 'pending') {
       return res.status(403).json({ error: 'Your matchmaker application is still being reviewed.', pending: true })
