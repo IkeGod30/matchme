@@ -23,8 +23,11 @@ import { validateProfile } from '../validate.ts'
 export const seekerRoutes = express.Router()
 seekerRoutes.use(requireRole('seeker'))
 
-/** Other members as a seeker sees them: profile details, but only the message from their own request. */
-function asMember(p: Profile): Profile {
+/**
+ * Other members as a seeker sees them: profile details, but only the message from their own request,
+ * and never their contact details — the matchmaker shares those once a match is paid for.
+ */
+function asMember({ contact: _contact, ...p }: Profile): Profile {
   return {
     ...p,
     request: {

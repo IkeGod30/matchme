@@ -4,7 +4,7 @@ import { isMutuallyCompatible, requestFit } from '../../lib/matching'
 import { proposalState, requestStatus, unproposedRequests } from '../../lib/requests'
 import { actions, allMembers, findMember, type AppData, type MatchmakerData } from '../../lib/store'
 import type { MatchRequest, Profile } from '../../types'
-import { CandidateCard, MemberLine } from '../shared/CandidateCard'
+import { CandidateCard, ContactLine, MemberLine } from '../shared/CandidateCard'
 import { MatchmakerAvatar } from '../shared/MatchmakerCard'
 import { PhysicalSummary } from '../shared/PhysicalSummary'
 import { Portrait } from '../shared/Portrait'
@@ -163,6 +163,7 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
               {seeker.name}, {seeker.age}
             </h2>
             <MemberLine profile={seeker} />
+            <ContactLine profile={seeker} missing="No preferred contact on file yet." />
             <p className="muted small">Request received {timeAgo(request.createdAt)}</p>
           </div>
           <div className="detail-actions">
@@ -252,6 +253,12 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
                         Paid {p.paidAt && timeAgo(p.paidAt)} · ref <code>{p.paymentRef}</code> — share contact details
                         and arrange the introduction.
                       </p>
+                    )}
+                    {state === 'paid' && (
+                      <ContactLine
+                        profile={candidate}
+                        missing={`${candidate.name} has no preferred contact on file${candidate.isDemo ? ' (sample member)' : ''}.`}
+                      />
                     )}
                   </div>
                   <ProposalChip proposal={p} />

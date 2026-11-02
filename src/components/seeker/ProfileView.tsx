@@ -1,6 +1,6 @@
 import { actions } from '../../lib/store'
 import type { Profile } from '../../types'
-import { MemberLine } from '../shared/CandidateCard'
+import { ContactLine, MemberLine } from '../shared/CandidateCard'
 import { PhysicalSummary } from '../shared/PhysicalSummary'
 import { Portrait } from '../shared/Portrait'
 import { RequestSummary } from '../shared/RequestSummary'
@@ -17,6 +17,10 @@ export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; o
               {profile.name}, {profile.age}
             </h2>
             <MemberLine profile={profile} />
+            <ContactLine
+              profile={profile}
+              missing="Add your preferred contact (Edit → About you) so your matchmaker can reach you."
+            />
           </div>
         </header>
         {profile.bio && <p className="bio">{profile.bio}</p>}

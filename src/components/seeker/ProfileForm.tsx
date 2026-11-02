@@ -14,10 +14,10 @@ import {
   selfFeaturesFor,
   wantedOptions,
 } from '../../data/attributes'
-import { COUNTRIES, PROFESSIONS, RACES, RELATIONSHIP_STATUSES } from '../../data/options'
+import { CONTACT_METHODS, COUNTRIES, PROFESSIONS, RACES, RELATIONSHIP_STATUSES, contactProblem } from '../../data/options'
 import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
 import { resizeImage } from '../../lib/format'
-import type { PartnerRequest, PhysicalProfile, Profile } from '../../types'
+import type { PartnerRequest, PhysicalProfile, PreferredContact, Profile } from '../../types'
 import { ChipSelect } from '../shared/ChipSelect'
 import { FeatureArt } from '../shared/FeatureArt'
 import { FeaturePicker } from '../shared/FeaturePicker'
@@ -29,6 +29,8 @@ import { VisibilitySetting } from './VisibilitySetting'
 const STEPS = ['About you', 'Your body', 'Your request', 'Desired features', 'Review'] as const
 const WIZARD_STEP = 3
 const MIN_MESSAGE_LENGTH = 20
+
+const NO_CONTACT: PreferredContact = { method: '', value: '' }
 
 const LOCATION_SUGGESTIONS = [...new Set([...COUNTRIES, ...SAMPLE_PROFILES.map((p) => p.city)])].sort()
 
@@ -49,6 +51,9 @@ function validate(step: number, p: Profile): string[] {
     if (!p.race) errors.push('Choose your race / ethnicity.')
     if (!p.relationshipStatus) errors.push('Choose your relationship status.')
     if (!p.profession) errors.push('Choose your profession.')
+    const contact = p.contact ?? NO_CONTACT
+    const contactError = contactProblem(contact.method, contact.value)
+    if (contactError) errors.push(contactError)
   }
   if (step === 1) {
     const missing = selfFeaturesFor(p.gender)
@@ -88,6 +93,10 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
     setDraft((d) => ({ ...d, physical: { ...d.physical, ...patch } }))
   const updateRequest = (patch: Partial<PartnerRequest>) =>
     setDraft((d) => ({ ...d, request: { ...d.request, ...patch } }))
+  const contact = draft.contact ?? NO_CONTACT
+  const updateContact = (patch: Partial<PreferredContact>) =>
+    setDraft((d) => ({ ...d, contact: { ...(d.contact ?? NO_CONTACT), ...patch } }))
+  const contactIsEmail = contact.method === 'Email'
 
   async function onPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -128,6 +137,7 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
       city: draft.city.trim(),
       jobTitle: draft.jobTitle.trim(),
       bio: draft.bio.trim(),
+      contact: { method: contact.method, value: contact.value.trim() },
       physical: {
         ...draft.physical,
         ...Object.fromEntries(SELF_FEATURES.map((f) => [f.key, ownKeys.has(f.key) ? (draft.physical[f.key] ?? '') : ''])),
@@ -279,6 +289,38 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             <span>About me (optional)</span>
             <textarea rows={3} value={draft.bio} onChange={(e) => update({ bio: e.target.value })} />
           </label>
+          <fieldset className="contact-field">
+            <legend>Preferred contact</legend>
+            <p className="hint small">
+              How your matchmaker should reach you. Only you and your matchmaker see this — never other members.
+            </p>
+            <div className="grid-2">
+              <label className="field">
+                <span>Contact me by</span>
+                <select
+                  value={contact.method}
+                  required
+                  onChange={(e) => updateContact({ method: e.target.value })}
+                >
+                  <option value="">Select…</option>
+                  {CONTACT_METHODS.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{contactIsEmail ? 'Email address' : 'Phone number'}</span>
+                <input
+                  type={contactIsEmail ? 'email' : 'tel'}
+                  autoComplete={contactIsEmail ? 'email' : 'tel'}
+                  required
+                  placeholder={contactIsEmail ? 'you@example.com' : '+234 803 123 4567'}
+                  value={contact.value}
+                  onChange={(e) => updateContact({ value: e.target.value })}
+                />
+              </label>
+            </div>
+          </fieldset>
         </section>
       )}
 

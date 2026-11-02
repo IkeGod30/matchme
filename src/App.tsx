@@ -68,6 +68,7 @@ function newProfile(): Profile {
     profession: '',
     jobTitle: '',
     bio: '',
+    contact: { method: '', value: '' },
     physical: emptyPhysical(),
     request: emptyRequest(),
   }

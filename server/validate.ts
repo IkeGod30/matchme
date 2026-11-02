@@ -1,4 +1,4 @@
-import { RELATIONSHIP_STATUSES } from '../src/data/options.ts'
+import { RELATIONSHIP_STATUSES, contactProblem } from '../src/data/options.ts'
 import type { Gender, Profile } from '../src/types.ts'
 import { BadRequest } from './photos.ts'
 
@@ -64,6 +64,13 @@ export function validateProfile(input: unknown): Omit<Profile, 'id' | 'photo' | 
     throw new BadRequest('Relationship status preference is invalid.')
   }
 
+  const contact = input.contact
+  if (!isObject(contact)) throw new BadRequest('Preferred contact is required.')
+  const contactMethod = text(contact.method, 'Preferred contact method', 40, true)
+  const contactValue = text(contact.value, 'Preferred contact details', 120, true)
+  const contactError = contactProblem(contactMethod, contactValue)
+  if (contactError) throw new BadRequest(contactError)
+
   return {
     name: text(input.name, 'Name', 80, true),
     age: int(input.age, 'Age', 18, 99),
@@ -76,6 +83,7 @@ export function validateProfile(input: unknown): Omit<Profile, 'id' | 'photo' | 
     profession: text(input.profession, 'Profession', 80, true),
     jobTitle: text(input.jobTitle ?? '', 'Job title', 120),
     bio: text(input.bio ?? '', 'About me', 2000),
+    contact: { method: contactMethod, value: contactValue },
     physical: physicalClean as Profile['physical'],
     request: {
       message: text(request.message, 'Request message', 4000, true),

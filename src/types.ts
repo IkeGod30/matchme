@@ -22,6 +22,13 @@ export interface PartnerRequest {
   physical: PhysicalPreferences
 }
 
+export interface PreferredContact {
+  /** One of CONTACT_METHODS. */
+  method: string
+  /** Phone number or email address, depending on the method. */
+  value: string
+}
+
 export interface Profile {
   id: string
   name: string
@@ -36,6 +43,11 @@ export interface Profile {
   profession: string
   jobTitle: string
   bio: string
+  /**
+   * How the member wants their matchmaker to reach them. Required for seekers; only the member and
+   * matchmakers ever see it. Missing on sample members and on profiles saved before it existed.
+   */
+  contact?: PreferredContact
   /** Image URL (uploaded data URL or bundled demo photo). Without one, an illustrated portrait is drawn from `physical`. */
   photo?: string
   /** Sample member that is not a real person; labelled as such wherever shown. */

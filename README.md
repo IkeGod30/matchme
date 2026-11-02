@@ -97,6 +97,10 @@ All rules live in the server (`server/data.ts`, `server/index.ts`):
 
 - Seekers only receive their own profile, the people proposed to them, and seekers who
   accepted them as a match. Other members' preferences are never sent to seekers.
+- Every seeker must give a **preferred contact** (phone call, WhatsApp, text message or email).
+  Only the seeker and matchmakers ever receive it — it's stripped from members shown to other
+  seekers and never on public cards. Matchmakers see it on the request, and a paid candidate's
+  contact appears next to that match so they can arrange the introduction.
 - Photos are served through `/api/photos/:id`, which applies the same rules.
 - Profiles are private unless the member opts in to a public listing. Public cards only
   show photo, first name, age, city, job, bio and "looking for" message.

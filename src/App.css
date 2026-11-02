@@ -1618,6 +1618,32 @@
   margin: 0;
 }
 
+/* Preferred contact: a required group on the profile form, and a line for the member and matchmakers. */
+.contact-field {
+  margin: 0;
+  padding: 12px 14px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.contact-field legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.contact-field .hint {
+  margin: 0 0 8px;
+}
+
+.contact-line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contact-line.missing {
+  color: var(--danger);
+}
+
 .meters {
   display: grid;
   grid-template-columns: 1fr 1fr;

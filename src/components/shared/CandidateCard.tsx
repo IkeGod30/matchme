@@ -120,3 +120,15 @@ export function CandidateCard({
     </article>
   )
 }
+
+/** A member's preferred contact. Only ever rendered for the member themselves and for matchmakers. */
+export function ContactLine({ profile, missing }: { profile: Profile; missing: string }) {
+  const { contact } = profile
+  if (!contact?.value) return <p className="contact-line missing small">{missing}</p>
+  const href = contact.method === 'Email' ? `mailto:${contact.value}` : `tel:${contact.value.replace(/[^\d+]/g, '')}`
+  return (
+    <p className="contact-line small">
+      <span className="muted">Preferred contact:</span> {contact.method} · <a href={href}>{contact.value}</a>
+    </p>
+  )
+}
