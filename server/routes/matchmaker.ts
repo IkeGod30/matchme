@@ -7,7 +7,6 @@ import {
   allRequests,
   approvedMatchmakerRow,
   matchmakerRow,
-  pendingApplications,
   pendingInvites,
   profileRow,
   requestById,
@@ -16,7 +15,7 @@ import {
   withInternalNotes,
 } from '../data.ts'
 import { get, run, transaction } from '../db.ts'
-import { applicationDecisionEmail, matchmakerInviteEmail } from '../emails.ts'
+import { matchmakerInviteEmail } from '../emails.ts'
 import { APP_URL, EMAIL, fail, optionalText, recordInterest, sha256, textList } from '../http.ts'
 import { sendEmail } from '../mailer.ts'
 import { BadRequest, deletePhoto, savePhoto } from '../photos.ts'
@@ -33,7 +32,6 @@ matchmakerRoutes.get('/state', (_req, res) => {
     me: teamMember(me.id),
     team: team(),
     invites: pendingInvites(),
-    applications: pendingApplications(),
     profiles: allProfiles(),
     requests: withInternalNotes(allRequests()),
   })
@@ -184,29 +182,6 @@ matchmakerRoutes.post('/invites', (req, res) => {
 
 matchmakerRoutes.delete('/invites/:id', (req, res) => {
   run('DELETE FROM invites WHERE id = ? AND used_at IS NULL', req.params.id)
-  res.json({ ok: true })
-})
-
-/** Approves a public matchmaker application: they can now see members and take on requests. */
-matchmakerRoutes.post('/applications/:id/approve', (req, res) => {
-  const applicant = matchmakerRow(req.params.id)
-  if (!applicant || applicant.approved_at) return fail(res, 404, 'Application not found.')
-  run('UPDATE matchmakers SET approved_at = ? WHERE user_id = ?', Date.now(), applicant.user_id)
-  sendEmail(applicationDecisionEmail(applicant.email, applicant.display_name, true, `${APP_URL}/#staff`)).catch((error) =>
-    console.error('Could not send approval email:', error),
-  )
-  res.json({ ok: true })
-})
-
-/** Declines an application and removes the pending account. */
-matchmakerRoutes.post('/applications/:id/decline', (req, res) => {
-  const applicant = matchmakerRow(req.params.id)
-  if (!applicant || applicant.approved_at) return fail(res, 404, 'Application not found.')
-  deletePhoto(applicant.photo_file)
-  run('DELETE FROM users WHERE id = ?', applicant.user_id)
-  sendEmail(applicationDecisionEmail(applicant.email, applicant.display_name, false, `${APP_URL}/`)).catch((error) =>
-    console.error('Could not send decline email:', error),
-  )
   res.json({ ok: true })
 })
 

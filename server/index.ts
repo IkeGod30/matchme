@@ -6,6 +6,7 @@ import { get } from './db.ts'
 import { fail } from './http.ts'
 import { isEmailConfigured } from './mailer.ts'
 import { BadRequest } from './photos.ts'
+import { adminRoutes } from './routes/admin.ts'
 import { authRoutes } from './routes/auth.ts'
 import { matchmakerRoutes } from './routes/matchmaker.ts'
 import { publicRoutes } from './routes/public.ts'
@@ -16,6 +17,7 @@ import { seekerRoutes } from './routes/seeker.ts'
 //   /api/*             public pages and access-checked photos
 //   /api/seeker/*      seekers (role: seeker)
 //   /api/matchmaker/*  matchmakers (role: matchmaker)
+//   /api/admin/*       super users (role: admin): every account, matchmaker applications
 
 const PORT = Number(process.env.PORT ?? 3001)
 const SERVE_DIST = process.argv.includes('--serve-dist')
@@ -28,6 +30,7 @@ app.use(loadUser)
 app.use('/api/auth', authRoutes)
 app.use('/api/seeker', seekerRoutes)
 app.use('/api/matchmaker', matchmakerRoutes)
+app.use('/api/admin', adminRoutes)
 app.use('/api', publicRoutes)
 app.use('/api', (_req, res) => fail(res, 404, 'Not found.'))
 

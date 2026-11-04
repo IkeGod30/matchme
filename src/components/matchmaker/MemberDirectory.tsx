@@ -94,6 +94,7 @@ export function MemberDirectory({ data, onOpenRequest }: MemberDirectoryProps) {
                       </span>
                     </span>
                     {!p.isDemo && <span className="badge">Real</span>}
+                    {p.suspended && <span className="badge suspended-badge">Suspended</span>}
                   </button>
                 </li>
               ))}

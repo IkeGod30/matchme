@@ -12,13 +12,14 @@ db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
 
-  -- Seekers (public site) and matchmakers (backoffice) are separate realms: the same email
-  -- can have one account in each, and each realm has its own log-in and session cookie.
+  -- Seekers (public site), matchmakers (/matchmaker) and super users (/admin) are separate
+  -- realms: the same email can have one account in each, and each realm has its own log-in
+  -- and session cookie.
   CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
     email         TEXT NOT NULL COLLATE NOCASE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker')),
+    role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker', 'admin')),
     created_at    INTEGER NOT NULL,
     UNIQUE (email, role)
   );
@@ -47,6 +48,17 @@ db.exec(`
     public_listing INTEGER NOT NULL DEFAULT 0,
     updated_at     INTEGER NOT NULL
   );
+
+  -- A member's photos in display order. The first one is also kept in profiles.photo_file as
+  -- their main photo (portraits, public cards).
+  CREATE TABLE IF NOT EXISTS profile_photos (
+    id         TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    file       TEXT NOT NULL,
+    position   INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS profile_photos_by_profile ON profile_photos (profile_id, position);
 
   CREATE TABLE IF NOT EXISTS requests (
     id                TEXT PRIMARY KEY,
@@ -135,11 +147,12 @@ function addColumn(table: string, column: string, definition: string): boolean {
   return true
 }
 
-// Emails used to be unique across all accounts; now they're unique per realm (seeker / matchmaker).
-// SQLite can't change a constraint in place, so the table is rebuilt once.
+// Emails used to be unique across all accounts; now they're unique per realm. Later the super
+// user ('admin') role was added. SQLite can't change a constraint in place, so the table is
+// rebuilt once for each (the columns added since are created again just below).
 const usersSql = (db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get() as { sql: string })
   .sql
-if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql)) {
+if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql) || !usersSql.includes("'admin'")) {
   db.exec('PRAGMA foreign_keys = OFF')
   try {
     db.exec(`
@@ -148,7 +161,7 @@ if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql)) {
         id            TEXT PRIMARY KEY,
         email         TEXT NOT NULL COLLATE NOCASE,
         password_hash TEXT NOT NULL,
-        role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker')),
+        role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker', 'admin')),
         created_at    INTEGER NOT NULL,
         UNIQUE (email, role)
       );
@@ -168,6 +181,11 @@ if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql)) {
   }
 }
 
+// A super user can suspend any account: it can't log in, and its sessions are ended.
+addColumn('users', 'suspended_at', 'INTEGER')
+// A super user promoted from a matchmaker account points back to it (for display).
+addColumn('users', 'promoted_from', 'TEXT REFERENCES users(id) ON DELETE SET NULL')
+
 // Which matchmaker looks after a request (NULL = unassigned).
 addColumn('requests', 'matchmaker_id', 'TEXT REFERENCES users(id) ON DELETE SET NULL')
 addColumn('requests', 'assigned_at', 'INTEGER')
@@ -179,6 +197,14 @@ if (addColumn('matchmakers', 'approved_at', 'INTEGER')) {
 }
 // The application (experience, motivation) a matchmaker submitted, as JSON.
 addColumn('matchmakers', 'application', 'TEXT')
+
+// Members whose single photo predates photo galleries (or was just seeded) get it as their first photo.
+db.exec(`
+  INSERT INTO profile_photos (id, profile_id, file, position, created_at)
+  SELECT lower(hex(randomblob(16))), p.id, p.photo_file, 0, p.updated_at
+  FROM profiles p
+  WHERE p.photo_file IS NOT NULL AND NOT EXISTS (SELECT 1 FROM profile_photos g WHERE g.profile_id = p.id)
+`)
 
 // Every matchmaker account gets a profile, named after their email until they edit it.
 // (Accounts created before profiles existed were already trusted, so they're approved.)

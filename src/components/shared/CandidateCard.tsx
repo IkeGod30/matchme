@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { GENDERS } from '../../data/attributes'
 import type { Criterion, Fit } from '../../lib/matching'
 import type { Profile } from '../../types'
+import { PhotoCarousel } from './PhotoCarousel'
 import { PhysicalSummary } from './PhysicalSummary'
 import { Portrait } from './Portrait'
 
@@ -95,6 +96,8 @@ export function CandidateCard({
           {fit.score === 1 && fit.criteria.length > 0 && <span className="badge">Meets every preference</span>}
         </div>
       </div>
+
+      <PhotoCarousel profile={profile} />
 
       <div className="meters">
         <FitMeter label={fitLabel} fit={fit} />

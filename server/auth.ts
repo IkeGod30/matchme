@@ -6,11 +6,11 @@ import { get, run } from './db.ts'
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>
 
 /**
- * Each role is its own realm: seekers use the public site, matchmakers the backoffice.
- * The realms have separate log-ins and separate session cookies, so an account only ever
- * works in its own realm and both can be signed in side by side in one browser.
+ * Each role is its own realm: seekers use the public site, matchmakers the backoffice at
+ * /matchmaker, and super users (admin) the account administration at /admin. The realms have
+ * separate log-ins and separate session cookies, so an account only ever works in its own realm.
  */
-export type Role = 'seeker' | 'matchmaker'
+export type Role = 'seeker' | 'matchmaker' | 'admin'
 
 export interface User {
   id: string
@@ -29,7 +29,11 @@ export function userById(id: string): User | undefined {
   return get<User>(`SELECT ${USER_COLUMNS} FROM users u WHERE u.id = ?`, id)
 }
 
-const SESSION_COOKIES: Record<Role, string> = { seeker: 'mm_session', matchmaker: 'mm_staff_session' }
+const SESSION_COOKIES: Record<Role, string> = {
+  seeker: 'mm_session',
+  matchmaker: 'mm_staff_session',
+  admin: 'mm_admin_session',
+}
 const ROLES = Object.keys(SESSION_COOKIES) as Role[]
 const SESSION_DAYS = 30
 
@@ -78,6 +82,11 @@ export function startSession(req: Request, res: Response, user: Pick<User, 'id' 
   })
 }
 
+/** Signs a user out everywhere, e.g. when their account is suspended. */
+export function endAllSessions(userId: string) {
+  run('DELETE FROM sessions WHERE user_id = ?', userId)
+}
+
 /** Signs out of one realm only; a session in the other realm is left alone. */
 export function endSession(req: Request, res: Response, role: Role) {
   const token = readCookie(req, SESSION_COOKIES[role])
@@ -103,11 +112,13 @@ export function loadUser(req: Request, res: Response, next: NextFunction) {
   for (const role of ROLES) {
     const token = readCookie(req, SESSION_COOKIES[role])
     if (!token) continue
-    const user = get<User & { expires_at: number }>(
-      `SELECT ${USER_COLUMNS}, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
+    const user = get<User & { expires_at: number; suspended_at: number | null }>(
+      `SELECT ${USER_COLUMNS}, s.expires_at, u.suspended_at FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token = ?`,
       token,
     )
-    if (user && user.expires_at > Date.now() && user.role === role) {
+    // A suspended account's sessions stop working at once.
+    if (user && user.expires_at > Date.now() && user.role === role && user.suspended_at === null) {
       users[role] = { id: user.id, email: user.email, role: user.role, status: user.status }
     } else if (user) {
       run('DELETE FROM sessions WHERE token = ?', token)

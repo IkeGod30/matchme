@@ -112,3 +112,25 @@ export function passwordChangedEmail(to: string): Email {
 <p style="color:#6f6266;font-size:13px">If this wasn’t you, reset your password straight away using “Forgot your password?” on the login page, and contact us.</p>`),
   }
 }
+
+export function superUserWelcomeEmail(to: string, link: string): Email {
+  return {
+    to,
+    subject: 'You’re now a MatchMe super user',
+    text: [
+      'Hello,',
+      '',
+      'You’ve been given super-user access to MatchMe, where you manage seeker and matchmaker accounts.',
+      'This is a separate account from any other MatchMe account you have. Open this link to choose its password',
+      '(it expires in 1 hour and works once — after that, use “Forgot your password?” on the admin log-in):',
+      '',
+      link,
+      '',
+      '— MatchMe',
+    ].join('\n'),
+    html: layout(`<p>Hello,</p>
+<p>You’ve been given <strong>super-user access</strong> to MatchMe, where you manage seeker and matchmaker accounts. This is a separate account from any other MatchMe account you have.</p>
+<p style="padding:8px 0"><a href="${escape(link)}" style="background:#d6336c;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;display:inline-block">Choose my password</a></p>
+<p style="color:#6f6266;font-size:13px">This link expires in 1 hour and can be used once — after that, use “Forgot your password?” on the admin log-in. If the button doesn’t work, copy this address into your browser:<br><a href="${escape(link)}" style="color:#b02457;word-break:break-all">${escape(link)}</a></p>`),
+  }
+}

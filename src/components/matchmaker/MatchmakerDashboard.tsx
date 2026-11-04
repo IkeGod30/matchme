@@ -47,9 +47,6 @@ export function MatchmakerDashboard({ data, matchmaker }: { data: AppData; match
           <button key={t.id} type="button" aria-current={tab === t.id} onClick={() => go(t.id)}>
             {t.label}
             {t.id === 'requests' && unassignedNew > 0 && <span className="count">{unassignedNew}</span>}
-            {t.id === 'team' && matchmaker.applications.length > 0 && (
-              <span className="count">{matchmaker.applications.length}</span>
-            )}
           </button>
         ))}
       </nav>

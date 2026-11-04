@@ -4,6 +4,9 @@ import { latestRequestFor, proposalState, requestStatus } from '../../src/lib/re
 import type { MatchRequest, Profile } from '../../src/types.ts'
 import { currentUser, endSession, requireRole } from '../auth.ts'
 import {
+  galleryRows,
+  galleryUrl,
+  type GalleryRow,
   incomingForCandidate,
   profileRow,
   profileRowForUser,
@@ -16,7 +19,8 @@ import {
 } from '../data.ts'
 import { run, transaction } from '../db.ts'
 import { fail, optionalText, recordInterest } from '../http.ts'
-import { deletePhoto, savePhoto } from '../photos.ts'
+import { BadRequest, deletePhoto, savePhoto } from '../photos.ts'
+import { deleteAccount } from '../accounts.ts'
 import { validateProfile } from '../validate.ts'
 
 /** Everything a signed-in seeker can do. */
@@ -43,6 +47,42 @@ function asMember({ contact: _contact, ...p }: Profile): Profile {
       physical: {} as Profile['request']['physical'],
     },
   }
+}
+
+/** How many photos a member may have. */
+const MAX_PHOTOS = 6
+
+/**
+ * Works out a member's photos from the list the form sent, in order: a URL keeps one of their
+ * current photos, a data URL is a new upload. Returns the new list and the files no longer used.
+ */
+function syncPhotos(profileId: string, sent: unknown): { kept: GalleryRow[]; removed: string[] } {
+  if (!Array.isArray(sent)) throw new BadRequest('Photos are invalid.')
+  if (sent.length > MAX_PHOTOS) throw new BadRequest(`You can add up to ${MAX_PHOTOS} photos.`)
+  const current = new Map(galleryRows(profileId).map((g) => [galleryUrl(profileId, g.id), g]))
+  const kept: GalleryRow[] = []
+  const uploaded: string[] = []
+  try {
+    for (const item of sent) {
+      if (typeof item !== 'string') throw new BadRequest('Photos are invalid.')
+      const existing = current.get(item.split('?')[0])
+      if (existing) {
+        if (!kept.includes(existing)) kept.push(existing)
+      } else if (item.startsWith('data:')) {
+        const file = savePhoto(item)
+        uploaded.push(file)
+        kept.push({ id: randomUUID(), file })
+      } else {
+        throw new BadRequest('One of your photos no longer exists. Reload the page and try again.')
+      }
+    }
+  } catch (error) {
+    // Don't leave half an upload behind.
+    for (const file of uploaded) deletePhoto(file)
+    throw error
+  }
+  const keptFiles = new Set(kept.map((g) => g.file))
+  return { kept, removed: [...current.values()].map((g) => g.file).filter((f) => !keptFiles.has(f)) }
 }
 
 /** The signed-in seeker's profile id, or a 409 telling them to create one first. */
@@ -79,36 +119,44 @@ seekerRoutes.put('/profile', (req, res) => {
   const existing = profileRowForUser(user.id)
   const id = existing?.id ?? randomUUID()
 
-  let photoFile = existing?.photo_file ?? null
-  if (typeof body.photo === 'string') {
-    const saved = savePhoto(body.photo)
-    deletePhoto(photoFile)
-    photoFile = saved
-  } else if (body.photo === null) {
-    deletePhoto(photoFile)
-    photoFile = null
-  }
+  // Leaving photos out keeps them as they are.
+  const photos = body.photos === undefined ? undefined : syncPhotos(id, body.photos)
+  const photoFile = photos ? (photos.kept[0]?.file ?? null) : (existing?.photo_file ?? null)
+  const now = Date.now()
 
-  run(
-    `INSERT INTO profiles (id, user_id, data, photo_file, is_demo, public_listing, updated_at)
-     VALUES (?, ?, ?, ?, 0, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET data = excluded.data, photo_file = excluded.photo_file,
-       public_listing = excluded.public_listing, updated_at = excluded.updated_at`,
-    id,
-    user.id,
-    JSON.stringify({ ...clean, id }),
-    photoFile,
-    body.publicListing === true ? 1 : 0,
-    Date.now(),
-  )
+  transaction(() => {
+    run(
+      `INSERT INTO profiles (id, user_id, data, photo_file, is_demo, public_listing, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET data = excluded.data, photo_file = excluded.photo_file,
+         public_listing = excluded.public_listing, updated_at = excluded.updated_at`,
+      id,
+      user.id,
+      JSON.stringify({ ...clean, id }),
+      photoFile,
+      body.publicListing === true ? 1 : 0,
+      now,
+    )
+    if (!photos) return
+    run('DELETE FROM profile_photos WHERE profile_id = ?', id)
+    photos.kept.forEach((g, position) =>
+      run(
+        'INSERT INTO profile_photos (id, profile_id, file, position, created_at) VALUES (?, ?, ?, ?, ?)',
+        g.id,
+        id,
+        g.file,
+        position,
+        now,
+      ),
+    )
+  })
+  for (const file of photos?.removed ?? []) deletePhoto(file)
   res.json({ profile: toProfile(profileRow(id)!) })
 })
 
 seekerRoutes.delete('/account', (req, res) => {
   const user = currentUser(res, 'seeker')!
-  deletePhoto(profileRowForUser(user.id)?.photo_file)
-  // Cascades to the profile, its requests and proposals, and sessions.
-  run('DELETE FROM users WHERE id = ?', user.id)
+  deleteAccount(user.id)
   endSession(req, res, 'seeker')
   res.json({ ok: true })
 })

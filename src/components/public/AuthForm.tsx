@@ -1,28 +1,35 @@
 import { useState, type FormEvent } from 'react'
-import { applyAsMatchmaker, logIn, signUp, staffLogIn, type User } from '../../lib/store'
+import { adminLogIn, applyAsMatchmaker, logIn, signUp, staffLogIn, type User } from '../../lib/store'
 import { TagInput } from '../shared/TagInput'
 import type { Audience } from './Landing'
 
 const LANGUAGES = ['English', 'Yoruba', 'Igbo', 'Hausa', 'Pidgin', 'French', 'Arabic', 'Twi', 'Swahili', 'Spanish', 'Portuguese']
 
+/** 'matchmaker' = the matchmaker log-in (/matchmaker) and application; 'admin' = super users (/admin). */
+type FormAudience = Audience | 'admin'
+
 interface AuthFormProps {
   mode: 'login' | 'signup'
-  /** 'matchmaker' = the staff log-in (/#staff) and the matchmaker application. */
-  audience: Audience
-  onSwitch: () => void
-  onDone: (user: User | null) => void
+  audience: FormAudience
+  /** Link to the other form (log in ⇄ sign up). Left out where there's nowhere to switch to. */
+  onSwitch?: () => void
+  /** Called with the signed-in user; after a matchmaker application, with no user and the email used. */
+  onDone: (user: User | null, email?: string) => void
   onCancel: () => void
   onForgot: () => void
   /** Shown above the form, e.g. after being signed out of the other realm. */
   notice?: string
 }
 
-const TITLES: Record<Audience, Record<AuthFormProps['mode'], string>> = {
+const TITLES: Record<FormAudience, Record<AuthFormProps['mode'], string>> = {
   seeker: { login: 'Log in', signup: 'Create your account' },
-  matchmaker: { login: 'Staff log in', signup: 'Apply to be a matchmaker' },
+  matchmaker: { login: 'Matchmaker log in', signup: 'Apply to be a matchmaker' },
+  admin: { login: 'Super user log in', signup: '' },
 }
 
-const INTROS: Record<Audience, Record<AuthFormProps['mode'], string>> = {
+const LOG_INS = { seeker: logIn, matchmaker: staffLogIn, admin: adminLogIn }
+
+const INTROS: Record<FormAudience, Record<AuthFormProps['mode'], string>> = {
   seeker: {
     login: 'Welcome back. Log in to see your matches and your request.',
     signup:
@@ -32,7 +39,12 @@ const INTROS: Record<Audience, Record<AuthFormProps['mode'], string>> = {
     login:
       'For the MatchMe matchmaking team only — a separate account from any seeker account. Logging in here signs this browser out of the seeker site.',
     signup:
-      'Tell us about yourself. A matchmaker on the team reviews every application — you’ll see members and requests once you’re approved. Invited by a teammate? Use the link in your email instead.',
+      'Tell us about yourself. Our team reviews every application and emails you the decision — once approved, you log in at /matchmaker. Invited by a teammate? Use the link in your email instead.',
+  },
+  admin: {
+    login:
+      'For MatchMe super users only — a separate account from any seeker or matchmaker account. Logging in here signs this browser out of the other areas.',
+    signup: '',
   },
 }
 
@@ -57,13 +69,14 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
     setBusy(true)
     try {
       if (applying) {
-        onDone(await applyAsMatchmaker({ email, password, displayName, experience, languages, agreeConfidentiality: agree }))
+        await applyAsMatchmaker({ email, password, displayName, experience, languages, agreeConfidentiality: agree })
+        onDone(null, email.trim())
       } else if (signup) {
         await signUp(email, password)
         onDone(null)
       } else {
-        // Each realm has its own log-in: a seeker account can't open the backoffice, and vice versa.
-        onDone(await (audience === 'matchmaker' ? staffLogIn : logIn)(email, password))
+        // Each realm has its own log-in: an account only works in its own area.
+        onDone(await LOG_INS[audience](email, password))
       }
     } catch (e) {
       setError((e as Error).message)
@@ -166,12 +179,14 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
             {busy ? 'Please wait…' : applying ? 'Submit application' : signup ? 'Create account' : 'Log in'}
           </button>
         </div>
-        <p className="small auth-switch">
-          {signup ? 'Already have an account?' : audience === 'seeker' ? 'New to MatchMe?' : 'Want to join the team?'}{' '}
-          <button type="button" className="link-btn" onClick={onSwitch}>
-            {signup ? 'Log in' : audience === 'seeker' ? 'Create an account' : 'Apply to be a matchmaker'}
-          </button>
-        </p>
+        {onSwitch && (
+          <p className="small auth-switch">
+            {signup ? 'Already have an account?' : audience === 'seeker' ? 'New to MatchMe?' : 'Want to join the team?'}{' '}
+            <button type="button" className="link-btn" onClick={onSwitch}>
+              {signup ? 'Log in' : audience === 'seeker' ? 'Create an account' : 'Apply to be a matchmaker'}
+            </button>
+          </p>
+        )}
       </form>
     </div>
   )

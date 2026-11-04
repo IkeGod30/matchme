@@ -19,7 +19,13 @@ export function saveProfileDraft(draft: Profile): void {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
   } catch {
-    // Storage full or blocked (e.g. a large photo in private mode): carry on without a draft.
+    // Storage full (several photos can be too big for it) or blocked: keep the rest of the
+    // draft without the photos, or carry on without a draft.
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, photo: undefined, photos: [] }))
+    } catch {
+      // ignore
+    }
   }
 }
 

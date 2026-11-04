@@ -42,59 +42,10 @@ export function Team({ data, matchmaker }: { data: AppData; matchmaker: Matchmak
       <div>
         <h2>Team</h2>
         <p className="muted">
-          Matchmakers join by applying (reviewed below) or by invitation (approved straight away). Everyone on the team
-          can see every request and member.
+          Matchmakers join by applying (a MatchMe super user reviews each application) or by invitation (approved
+          straight away). Everyone on the team can see every request and member.
         </p>
       </div>
-
-      {matchmaker.applications.length > 0 && (
-        <article className="card applications">
-          <h3>
-            Applications <span className="count">{matchmaker.applications.length}</span>
-          </h3>
-          <p className="muted small">
-            People who applied to be matchmakers. Approve only those you trust with members’ private profiles — they’ll
-            see every member and request.
-          </p>
-          <ul className="application-list">
-            {matchmaker.applications.map((a) => (
-              <li key={a.id}>
-                <MatchmakerAvatar matchmaker={a} size={44} />
-                <div className="application-body">
-                  <strong>{a.displayName}</strong>
-                  <span className="muted small">
-                    {a.email} · applied {timeAgo(a.appliedAt)}
-                    {a.languages.length > 0 && ` · speaks ${a.languages.join(', ')}`}
-                  </span>
-                  <blockquote className="quote small">{a.experience}</blockquote>
-                </div>
-                <div className="application-actions">
-                  <button
-                    type="button"
-                    className="btn ghost small-btn danger"
-                    onClick={() =>
-                      confirm(`Decline ${a.displayName}'s application? Their account will be removed and they'll be emailed.`) &&
-                      actions.declineApplication(a.id)
-                    }
-                  >
-                    Decline
-                  </button>
-                  <button
-                    type="button"
-                    className="btn primary small-btn"
-                    onClick={() =>
-                      confirm(`Approve ${a.displayName}? They'll be able to see every member and request.`) &&
-                      actions.approveApplication(a.id)
-                    }
-                  >
-                    Approve
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </article>
-      )}
 
       <div className="team-grid">
         {matchmaker.team.map((m) => (

@@ -156,12 +156,12 @@ interface PageProps {
 interface LandingProps extends PageProps {
   /** Matchmaker recruitment — a quiet footer link, like a Careers page. Hidden for signed-in seekers. */
   onJoin?: () => void
-  /** Backoffice log-in for matchmakers. */
-  onStaffLogin?: () => void
+  /** Matchmaker log-in (/matchmaker). The super-user area (/admin) is deliberately not linked. */
+  onMatchmakerLogin?: () => void
 }
 
 /** The public home page, written for seekers. */
-export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onStaffLogin }: LandingProps) {
+export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatchmakerLogin }: LandingProps) {
   const [demoSex, setDemoSex] = useState<FigureSex>('female')
   // The hanging tips sign sways once, the first time it scrolls into view.
   const tipsRef = useRef<HTMLDivElement>(null)
@@ -417,9 +417,9 @@ export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onStaf
               Become a matchmaker
             </button>
           )}
-          {onStaffLogin && (
-            <button type="button" className="link-btn staff-link" onClick={onStaffLogin}>
-              Staff log in
+          {onMatchmakerLogin && (
+            <button type="button" className="link-btn staff-link" onClick={onMatchmakerLogin}>
+              Matchmaker log in
             </button>
           )}
         </span>
@@ -474,14 +474,13 @@ const MM_FAQ = [
   },
 ]
 
-/** Matchmaker recruitment (/#join), reached from the home page's footer. */
+/** Matchmaker recruitment (/#join), reached from the home page's footer. Its button opens the application. */
 export function MatchmakerLanding({
   ctaLabel,
   onStart,
-  onLogin,
   onFeatured,
   onSwitch,
-}: PageProps & { onSwitch: () => void }) {
+}: Omit<PageProps, 'onLogin'> & { onSwitch: () => void }) {
   return (
     <div className="landing">
       <section className="landing-hero">
@@ -496,11 +495,6 @@ export function MatchmakerLanding({
             <button type="button" className="btn primary large" onClick={onStart}>
               {ctaLabel}
             </button>
-            {onLogin && (
-              <button type="button" className="btn ghost large" onClick={onLogin}>
-                Matchmaker log in
-              </button>
-            )}
           </div>
           <ul className="hero-points">
             <li>Free to apply</li>

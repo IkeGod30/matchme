@@ -1,7 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { requestPasswordReset, resetPassword, type Realm } from '../../lib/store'
 
-/** Password reset request for one realm: the public site's seekers, or backoffice staff. */
+const TITLES: Record<Realm, string> = {
+  seeker: 'Forgot your password?',
+  staff: 'Forgot your matchmaker password?',
+  admin: 'Forgot your super-user password?',
+}
+
+/** Password reset request for one realm: the public site's seekers, matchmakers or super users. */
 export function ForgotPasswordForm({ realm, onBack }: { realm: Realm; onBack: () => void }) {
   const [email, setEmail] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
@@ -42,7 +48,7 @@ export function ForgotPasswordForm({ realm, onBack }: { realm: Realm; onBack: ()
 
   return (
     <form className="card auth-form" onSubmit={submit}>
-      <h2>{realm === 'staff' ? 'Forgot your staff password?' : 'Forgot your password?'}</h2>
+      <h2>{TITLES[realm]}</h2>
       <p className="muted small">Enter the email you signed up with and we’ll send you a link to choose a new one.</p>
       <label className="field">
         <span>Email</span>

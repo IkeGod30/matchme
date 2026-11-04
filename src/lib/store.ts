@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import type {
-  Application,
+  AdminData,
   CandidateResponse,
   Invite,
   MatchmakerProfile,
@@ -14,17 +14,19 @@ import { api, ApiError } from './api'
 // Client-side cache of what the server lets the signed-in user see. Every action calls
 // the API and then reloads, so the server stays the single source of truth.
 //
-// Seekers (public site) and matchmakers (backoffice) are separate realms with separate
-// sessions, and only one is signed in per browser: the server ends the other realm's session
-// whenever one starts, and these helpers mirror that. `area` says which part of the app is
-// showing, and `data` always holds that area's view.
+// Seekers (public site), matchmakers (backoffice, /matchmaker) and super users (/admin) are
+// separate realms with separate sessions, and only one is signed in per browser: the server
+// ends the other realms' sessions whenever one starts, and these helpers mirror that. `area`
+// says which part of the app is showing, and `data` always holds that area's view.
 
-/** State after a seeker session starts: the backoffice session has been ended. */
-const asSeeker = (user: User): Partial<State> => ({ seeker: user, staff: null, matchmaker: null })
-/** State after a staff session starts: the seeker session has been ended. */
-const asStaff = (user: User): Partial<State> => ({ staff: user, seeker: null, me: null })
+/** State after a seeker session starts: the other realms' sessions have been ended. */
+const asSeeker = (user: User): Partial<State> => ({ seeker: user, staff: null, matchmaker: null, admin: null, adminData: null })
+/** State after a staff session starts: the other realms' sessions have been ended. */
+const asStaff = (user: User): Partial<State> => ({ staff: user, seeker: null, me: null, admin: null, adminData: null })
+/** State after a super-user session starts: the other realms' sessions have been ended. */
+const asAdmin = (user: User): Partial<State> => ({ admin: user, seeker: null, me: null, staff: null, matchmaker: null })
 
-export type Role = 'seeker' | 'matchmaker'
+export type Role = 'seeker' | 'matchmaker' | 'admin'
 
 export interface User {
   id: string
@@ -47,17 +49,18 @@ export interface MatchmakerData {
   me: TeamMember
   team: TeamMember[]
   invites: Invite[]
-  applications: Application[]
 }
 
-/** Which part of the app is showing: the public site (seekers) or the backoffice (matchmakers). */
-export type Area = 'site' | 'backoffice'
+/** Which part of the app is showing: the public site (seekers), the backoffice (matchmakers) or /admin. */
+export type Area = 'site' | 'backoffice' | 'admin'
 
 interface State {
   /** Signed-in seeker (public site realm). */
   seeker: User | null
   /** Signed-in matchmaker (backoffice realm). */
   staff: User | null
+  /** Signed-in super user (/admin realm). */
+  admin: User | null
   area: Area
   /** True until the first session check finishes. */
   loading: boolean
@@ -65,6 +68,8 @@ interface State {
   me: Profile | null
   /** Loaded in the backoffice for an approved matchmaker. */
   matchmaker: MatchmakerData | null
+  /** Loaded in /admin for a super user. */
+  adminData: AdminData | null
   data: AppData
   featured: Profile[]
 }
@@ -76,10 +81,12 @@ const EMPTY: AppData = { profiles: [], requests: [], examples: {} }
 let state: State = {
   seeker: null,
   staff: null,
+  admin: null,
   area: 'site',
   loading: true,
   me: null,
   matchmaker: null,
+  adminData: null,
   data: EMPTY,
   featured: [],
 }
@@ -128,7 +135,15 @@ async function loadExamples(): Promise<Record<string, string>> {
 export async function refresh(): Promise<void> {
   const examples = await loadExamples().catch(() => state.data.examples)
   try {
-    if (state.area === 'backoffice') {
+    if (state.area === 'admin') {
+      if (!state.admin) {
+        setState({ adminData: null, data: { ...EMPTY, examples } })
+        return
+      }
+      const res = await api<AdminData>('GET', '/admin/state')
+      if (state.area !== 'admin') return // left /admin while loading
+      setState({ adminData: res, data: { ...EMPTY, examples } })
+    } else if (state.area === 'backoffice') {
       const { staff } = state
       // Applicants see nothing until a teammate approves them.
       if (!staff || staff.status === 'pending') {
@@ -138,7 +153,7 @@ export async function refresh(): Promise<void> {
       const res = await api<MatchmakerData & { profiles: Profile[]; requests: MatchRequest[] }>('GET', '/matchmaker/state')
       if (state.area !== 'backoffice') return // left the backoffice while loading
       setState({
-        matchmaker: { me: res.me, team: res.team, invites: res.invites, applications: res.applications },
+        matchmaker: { me: res.me, team: res.team, invites: res.invites },
         data: { profiles: res.profiles, requests: res.requests, examples },
       })
     } else {
@@ -160,7 +175,8 @@ export async function refresh(): Promise<void> {
   } catch (error) {
     // Session expired or revoked: sign out of that realm only.
     if (error instanceof ApiError && error.status === 401) {
-      if (state.area === 'backoffice') setState({ staff: null, matchmaker: null, data: { ...EMPTY, examples } })
+      if (state.area === 'admin') setState({ admin: null, adminData: null, data: { ...EMPTY, examples } })
+      else if (state.area === 'backoffice') setState({ staff: null, matchmaker: null, data: { ...EMPTY, examples } })
       else setState({ seeker: null, me: null, data: { ...EMPTY, examples } })
     } else throw error
   }
@@ -182,11 +198,12 @@ export function useStartStore() {
     started = true
     void (async () => {
       try {
-        const [seeker, staff] = await Promise.all([
+        const [seeker, staff, admin] = await Promise.all([
           api<{ user: User | null }>('GET', '/auth/me'),
           api<{ user: User | null }>('GET', '/auth/staff/me'),
+          api<{ user: User | null }>('GET', '/auth/admin/me'),
         ])
-        setState({ seeker: seeker.user, staff: staff.user })
+        setState({ seeker: seeker.user, staff: staff.user, admin: admin.user })
         await refresh()
       } catch (error) {
         console.error(error)
@@ -195,7 +212,7 @@ export function useStartStore() {
       }
     })()
     const tick = () => {
-      const user = state.area === 'backoffice' ? state.staff : state.seeker
+      const user = state.area === 'admin' ? state.admin : state.area === 'backoffice' ? state.staff : state.seeker
       if (!user || document.visibilityState !== 'visible') return
       // A pending matchmaker's status can change (approval), so re-check the session itself.
       ;(user.status === 'pending' ? reloadStaffSession() : refresh()).catch(console.error)
@@ -313,9 +330,25 @@ export async function reloadStaffSession(): Promise<void> {
   await refresh()
 }
 
+/* ---------- Auth: super users (/admin) ---------- */
+
+/** Super-user log-in. Seeker and matchmaker accounts are rejected here. */
+export async function adminLogIn(email: string, password: string): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/admin/login', { email, password })
+  setState(asAdmin(user))
+  await refresh()
+  return user
+}
+
+export async function adminLogOut(): Promise<void> {
+  await api('POST', '/auth/admin/logout').catch(() => undefined)
+  setState({ admin: null, adminData: null })
+  await refresh()
+}
+
 /* ---------- Password reset (per realm) ---------- */
 
-export type Realm = 'seeker' | 'staff'
+export type Realm = 'seeker' | 'staff' | 'admin'
 
 /** Emails a reset link if an account exists in that realm. The server answers the same either way. */
 export async function requestPasswordReset(email: string, realm: Realm): Promise<void> {
@@ -325,7 +358,7 @@ export async function requestPasswordReset(email: string, realm: Realm): Promise
 /** Sets a new password using the token from a reset link, then signs in to that account's realm. */
 export async function resetPassword(token: string, password: string): Promise<Realm> {
   const { user, realm } = await api<{ user: User; realm: Realm }>('POST', '/auth/reset', { token, password })
-  setState(realm === 'staff' ? asStaff(user) : asSeeker(user))
+  setState(realm === 'admin' ? asAdmin(user) : realm === 'staff' ? asStaff(user) : asSeeker(user))
   await refresh()
   return realm
 }
@@ -339,12 +372,12 @@ export interface MatchmakerApplication {
   agreeConfidentiality: boolean
 }
 
-/** Public application to become a matchmaker; the account stays pending until approved. */
-export async function applyAsMatchmaker(application: MatchmakerApplication): Promise<User> {
-  const { user } = await api<{ user: User }>('POST', '/auth/apply-matchmaker', application)
-  setState(asStaff(user))
-  await refresh()
-  return user
+/**
+ * Public application to become a matchmaker. Nobody is signed in: the account stays pending
+ * until a super user approves it, and the applicant hears by email.
+ */
+export async function applyAsMatchmaker(application: MatchmakerApplication): Promise<void> {
+  await api('POST', '/auth/apply-matchmaker', application)
 }
 
 /** Checks a matchmaker invitation link before showing the sign-up form. */
@@ -374,17 +407,18 @@ async function perform<T>(call: () => Promise<T>): Promise<T | undefined> {
   }
 }
 
-const isServerPhoto = (photo: string | undefined) => !!photo && photo.startsWith('/api/')
-
 export const actions = {
-  /** Saves the seeker's own profile. A new data-URL photo is uploaded; a removed photo is deleted. */
+  /**
+   * Saves the seeker's own profile. `photos` is the full list in order: their current photos by
+   * URL, new ones as data URLs. Photos left out are deleted; the first one is the main photo.
+   */
   saveProfile(profile: Profile) {
-    const { photo, ...rest } = profile
+    const { photo: _photo, photos, ...rest } = profile
     return perform(() =>
       api<{ profile: Profile }>('PUT', '/seeker/profile', {
         profile: rest,
         publicListing: !!profile.publicListing,
-        photo: isServerPhoto(photo) ? undefined : (photo ?? null),
+        photos: photos ?? [],
       }),
     )
   },
@@ -457,16 +491,46 @@ export const actions = {
     return perform(() => api('DELETE', `/matchmaker/invites/${inviteId}`))
   },
 
-  approveApplication(applicantId: string) {
-    return perform(() => api('POST', `/matchmaker/applications/${applicantId}/approve`))
-  },
-
-  declineApplication(applicantId: string) {
-    return perform(() => api('POST', `/matchmaker/applications/${applicantId}/decline`))
-  },
-
   /** Sets or (with null) removes the example photo for one feature option. */
   async setExample(feature: string, option: string, photo: string | null): Promise<boolean> {
     return (await perform(() => api('PUT', '/matchmaker/examples', { feature, option, photo }))) !== undefined
+  },
+}
+
+/** What super users can do in /admin. Each reloads the account lists afterwards. */
+export const adminActions = {
+  approveApplication(applicantId: string) {
+    return perform(() => api('POST', `/admin/applications/${applicantId}/approve`))
+  },
+
+  declineApplication(applicantId: string) {
+    return perform(() => api('POST', `/admin/applications/${applicantId}/decline`))
+  },
+
+  suspend(accountId: string) {
+    return perform(() => api('POST', `/admin/accounts/${accountId}/suspend`))
+  },
+
+  reactivate(accountId: string) {
+    return perform(() => api('POST', `/admin/accounts/${accountId}/reactivate`))
+  },
+
+  /** Permanently deletes the account; for a super user, removes their super-user rights. */
+  remove(accountId: string) {
+    return perform(() => api('DELETE', `/admin/accounts/${accountId}`))
+  },
+
+  sendPasswordReset(accountId: string) {
+    return perform(() => api('POST', `/admin/accounts/${accountId}/password-reset`))
+  },
+
+  /** Gives a matchmaker a separate super-user account; they set its password from an email. */
+  promote(accountId: string) {
+    return perform(() => api('POST', `/admin/accounts/${accountId}/promote`))
+  },
+
+  /** A seeker's full profile, for review. */
+  async loadSeeker(accountId: string): Promise<Profile | null> {
+    return (await api<{ profile: Profile | null }>('GET', `/admin/seekers/${accountId}`)).profile
   },
 }

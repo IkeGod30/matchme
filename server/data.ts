@@ -9,6 +9,7 @@ import type {
   Proposal,
   ProposalResponse,
   TeamMember,
+  AccountSummary,
 } from '../src/types.ts'
 import type { User } from './auth.ts'
 import { all, get } from './db.ts'
@@ -21,6 +22,11 @@ interface ProfileRow {
   is_demo: number
   public_listing: number
   updated_at: number
+}
+
+export interface GalleryRow {
+  id: string
+  file: string
 }
 
 interface RequestRow {
@@ -54,15 +60,26 @@ const opt = <T>(value: T | null): T | undefined => (value === null ? undefined :
 
 /* ---------- Profiles ---------- */
 
+/** A member's photos in display order; the first is their main photo. */
+export function galleryRows(profileId: string): GalleryRow[] {
+  return all<GalleryRow>('SELECT id, file FROM profile_photos WHERE profile_id = ? ORDER BY position', profileId)
+}
+
+/** Where one of a member's photos is served. Each photo id is a new file, so the URL never changes. */
+export const galleryUrl = (profileId: string, photoId: string) => `/api/photos/${profileId}/${photoId}`
+
 export function toProfile(row: ProfileRow): Profile {
   const data = JSON.parse(row.data) as Profile
+  // Photos are served through access-checked routes, never as public files.
+  const photo = row.photo_file ? `/api/photos/${row.id}?v=${row.updated_at}` : undefined
+  const gallery = galleryRows(row.id).map((g) => galleryUrl(row.id, g.id))
   return {
     ...data,
     id: row.id,
     isDemo: row.is_demo === 1,
     publicListing: row.public_listing === 1,
-    // Photos are served through an access-checked route, never as public files.
-    photo: row.photo_file ? `/api/photos/${row.id}?v=${row.updated_at}` : undefined,
+    photo,
+    photos: gallery.length ? gallery : photo ? [photo] : [],
   }
 }
 
@@ -81,13 +98,21 @@ export function profilesById(ids: Iterable<string>): Profile[] {
   return rows.map(toProfile)
 }
 
+/** Every member, for matchmakers. Members a super user suspended are marked so they aren't proposed. */
 export function allProfiles(): Profile[] {
-  return all<ProfileRow>('SELECT * FROM profiles ORDER BY is_demo, updated_at').map(toProfile)
+  return all<ProfileRow & { suspended_at: number | null }>(
+    `SELECT p.*, u.suspended_at FROM profiles p LEFT JOIN users u ON u.id = p.user_id ORDER BY p.is_demo, p.updated_at`,
+  ).map((row) => ({ ...toProfile(row), ...(row.suspended_at !== null && { suspended: true }) }))
 }
 
 /** Limited card for the public Featured page: only what members agreed to show. */
 export function publicCards() {
-  return all<ProfileRow>('SELECT * FROM profiles WHERE public_listing = 1 ORDER BY updated_at DESC').map((row) => {
+  // Suspended members are taken off the Featured page (sample members have no account).
+  const rows = all<ProfileRow>(
+    `SELECT p.* FROM profiles p LEFT JOIN users u ON u.id = p.user_id
+     WHERE p.public_listing = 1 AND u.suspended_at IS NULL ORDER BY p.updated_at DESC`,
+  )
+  return rows.map((row) => {
     const p = toProfile(row)
     return {
       id: p.id,
@@ -300,19 +325,76 @@ export function pendingInvites(): Invite[] {
   }))
 }
 
+/* ---------- Accounts (super users) ---------- */
+
+interface AccountRow {
+  id: string
+  email: string
+  created_at: number
+  suspended_at: number | null
+}
+
+const summary = (row: AccountRow): AccountSummary => ({
+  id: row.id,
+  email: row.email,
+  createdAt: row.created_at,
+  suspendedAt: opt(row.suspended_at),
+})
+
+export function seekerAccounts(): AccountSummary[] {
+  return all<AccountRow & { profile_id: string | null; data: string | null; open_requests: number }>(
+    `SELECT u.id, u.email, u.created_at, u.suspended_at, p.id AS profile_id, p.data,
+       (SELECT COUNT(*) FROM requests r WHERE r.seeker_id = p.id AND r.closed_at IS NULL) AS open_requests
+     FROM users u LEFT JOIN profiles p ON p.user_id = u.id
+     WHERE u.role = 'seeker' ORDER BY u.created_at DESC`,
+  ).map((row) => {
+    const profile = row.data ? (JSON.parse(row.data) as Profile) : undefined
+    return {
+      ...summary(row),
+      name: profile?.name,
+      location: profile && [profile.city, profile.country].filter(Boolean).join(', '),
+      profileId: opt(row.profile_id),
+      openRequests: row.open_requests,
+    }
+  })
+}
+
+/** Approved matchmakers; applicants are listed separately (pendingApplications). */
+export function matchmakerAccounts(): AccountSummary[] {
+  return all<AccountRow & { display_name: string; is_super_user: number }>(
+    `SELECT u.id, u.email, u.created_at, u.suspended_at, m.display_name,
+       EXISTS (SELECT 1 FROM users a WHERE a.role = 'admin' AND (a.promoted_from = u.id OR a.email = u.email))
+         AS is_super_user
+     FROM users u JOIN matchmakers m ON m.user_id = u.id
+     WHERE u.role = 'matchmaker' AND m.approved_at IS NOT NULL ORDER BY m.display_name COLLATE NOCASE`,
+  ).map((row) => ({ ...summary(row), name: row.display_name, isSuperUser: row.is_super_user === 1 }))
+}
+
+export function adminAccounts(): AccountSummary[] {
+  return all<AccountRow & { promoted_from: string | null }>(
+    `SELECT id, email, created_at, suspended_at, promoted_from FROM users WHERE role = 'admin' ORDER BY created_at`,
+  ).map((row) => ({ ...summary(row), promotedFrom: opt(row.promoted_from) }))
+}
+
 /* ---------- Access control ---------- */
 
 /**
  * Who may see a member's profile and photo: the member, the matchmaker, seekers the
  * member was proposed to, candidates who were accepted by the member — or anyone, if
- * the member opted in to a public listing.
+ * the member opted in to a public listing. A public listing shows only the main photo, so
+ * the rest of a member's photos are checked with `publicListingCounts: false`.
  */
-export function canViewProfile(viewer: User | undefined, profileId: string): boolean {
+export function canViewProfile(
+  viewer: User | undefined,
+  profileId: string,
+  { publicListingCounts = true } = {},
+): boolean {
   const row = profileRow(profileId)
   if (!row) return false
-  if (row.public_listing === 1) return true
+  if (publicListingCounts && row.public_listing === 1) return true
   if (!viewer) return false
-  // Approved matchmakers see everyone; applicants still under review see nobody.
+  // Super users and approved matchmakers see everyone; applicants still under review see nobody.
+  if (viewer.role === 'admin') return true
   if (viewer.role === 'matchmaker') return viewer.status === 'active'
   const mine = profileRowForUser(viewer.id)
   if (!mine) return false

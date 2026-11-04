@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { AdminDashboard } from './components/admin/AdminDashboard'
+import { ApplicationReceived } from './components/public/ApplicationReceived'
 import { AuthForm } from './components/public/AuthForm'
 import { FeaturedMembers } from './components/public/FeaturedMembers'
 import { Landing, MatchmakerLanding } from './components/public/Landing'
@@ -12,7 +14,7 @@ import { SeekerHome } from './components/seeker/SeekerHome'
 import { emptyPhysical, emptyRequest } from './data/attributes'
 import { clearFeaturedPick, clearProfileDraft, loadFeaturedPick, saveFeaturedPick } from './lib/draft'
 import { latestRequestFor, requestStatus } from './lib/requests'
-import { actions, logOut, setArea, staffLogOut, useStartStore, useStore, type Area } from './lib/store'
+import { actions, adminLogOut, logOut, setArea, staffLogOut, useStartStore, useStore, type Area } from './lib/store'
 import type { Profile } from './types'
 import './App.css'
 
@@ -26,21 +28,59 @@ type Screen =
   | 'reset'
   | 'invite'
   | 'app'
-  // Matchmaker recruitment (public page, linked from the footer).
+  // Matchmaker recruitment and application (public pages, linked from the footer). Applying
+  // doesn't sign anyone in: the applicant sees a confirmation and hears back by email.
   | 'join'
-  // The backoffice (/#staff): its own area with a separate staff log-in and session. The
-  // matchmaker application and invitation sign-up create staff accounts, so they're part of it.
+  | 'apply'
+  | 'application-sent'
+  // The backoffice (/matchmaker): its own area with a separate matchmaker log-in and session.
+  // The invitation sign-up creates a matchmaker account, so it's part of it.
   | 'staff'
   | 'staff-forgot'
-  | 'apply'
+  // Super users (/admin): account administration. Not linked from anywhere on the site.
+  | 'admin'
+  | 'admin-forgot'
 
-const BACKOFFICE_SCREENS: Screen[] = ['staff', 'staff-forgot', 'apply', 'invite']
+const BACKOFFICE_SCREENS: Screen[] = ['staff', 'staff-forgot', 'invite']
+const ADMIN_SCREENS: Screen[] = ['admin', 'admin-forgot']
 
-/** Pages with a shareable / bookmarkable link. */
-const PAGE_HASHES: Partial<Record<Screen, string>> = { featured: '#featured', join: '#join', staff: '#staff' }
+const areaOf = (screen: Screen): Area =>
+  ADMIN_SCREENS.includes(screen) ? 'admin' : BACKOFFICE_SCREENS.includes(screen) ? 'backoffice' : 'site'
 
-function screenFromHash(): Screen | undefined {
+/** Each area's address. */
+const AREA_PATHS: Record<Area, string> = { site: '/', backoffice: '/matchmaker', admin: '/admin' }
+
+/** Public pages with a shareable / bookmarkable link. */
+const PAGE_HASHES: Partial<Record<Screen, string>> = { featured: '#featured', join: '#join' }
+
+function screenFromUrl(): Screen | undefined {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  if (path === AREA_PATHS.admin) return 'admin'
+  if (path === AREA_PATHS.backoffice) return 'staff'
+  // The backoffice used to be at /#staff; old links and bookmarks still work.
+  if (window.location.hash === '#staff') return 'staff'
   return (Object.keys(PAGE_HASHES) as Screen[]).find((s) => PAGE_HASHES[s] === window.location.hash)
+}
+
+/** The address for a screen: its area's path, plus its page hash or one-time token. */
+function urlFor(screen: Screen, link: TokenLink | null): string {
+  const hash = PAGE_HASHES[screen] ?? (link && screen === link.kind ? `#${link.kind}=${link.token}` : '')
+  return `${AREA_PATHS[areaOf(screen)]}${window.location.search}${hash}`
+}
+
+/** Puts the address bar in step with the screen without adding a history entry. */
+function syncUrl(screen: Screen, link: TokenLink | null) {
+  const url = urlFor(screen, link)
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== url) {
+    window.history.replaceState(null, '', url)
+  }
+}
+
+function initialScreen(link: TokenLink | null): Screen {
+  const screen = link?.kind ?? screenFromUrl() ?? 'home'
+  // e.g. an old /#staff link becomes /matchmaker. Token links keep the path they arrived on.
+  if (!link) syncUrl(screen, link)
+  return screen
 }
 
 /** One-time links: password reset (/#reset=<token>) and matchmaker invitation (/#invite=<token>). */
@@ -76,9 +116,11 @@ function newProfile(): Profile {
 
 function App() {
   useStartStore()
-  const { seeker, staff, loading, me, matchmaker, data } = useStore()
+  const { seeker, staff, admin, adminData, loading, me, matchmaker, data } = useStore()
   const [link, setLink] = useState(linkFromUrl)
-  const [screen, setScreen] = useState<Screen>(() => link?.kind ?? screenFromHash() ?? 'home')
+  const [screen, setScreen] = useState<Screen>(() => initialScreen(link))
+  // The email a matchmaker application was sent from, for the confirmation page.
+  const [appliedEmail, setAppliedEmail] = useState('')
   const [view, setView] = useState<SeekerView>('home')
 
   // A link pasted into a tab that already has the app open only changes the hash.
@@ -89,17 +131,20 @@ function App() {
         setLink(next)
         setScreen(next.kind)
       } else {
-        const page = screenFromHash()
-        if (page) setScreen(page)
+        const page = screenFromUrl()
+        if (page) {
+          setScreen(page)
+          syncUrl(page, null)
+        }
       }
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  // The backoffice is a separate area with its own (staff) session; everything else is the
-  // public site, which only ever uses the seeker session.
-  const area: Area = BACKOFFICE_SCREENS.includes(screen) ? 'backoffice' : 'site'
+  // The backoffice and /admin are separate areas with their own sessions; everything else is
+  // the public site, which only ever uses the seeker session.
+  const area: Area = areaOf(screen)
   useEffect(() => setArea(area), [area])
 
   // Matchmaker recruitment (#join) is off-limits to signed-in seekers. However they get there
@@ -127,10 +172,7 @@ function App() {
     setScreen(next)
     setSignedOutOf(null)
     // Leaving a reset or invitation screen also drops the one-time token from the address bar.
-    const hash = PAGE_HASHES[next] ?? (link && next === link.kind ? `#${link.kind}=${link.token}` : '')
-    if (window.location.hash !== hash) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
-    }
+    syncUrl(next, link)
     window.scrollTo({ top: 0 })
   }
 
@@ -172,7 +214,8 @@ function App() {
 
   /** Recruitment page's main button: the backoffice for staff, otherwise the application form. */
   function startAsMatchmaker() {
-    void enterBackoffice(staff ? 'staff' : 'apply')
+    if (staff) void enterBackoffice('staff')
+    else show('apply')
   }
 
   // The seeker's open request, and who is already asked for or proposed on it.
@@ -236,6 +279,11 @@ function App() {
     show('staff')
   }
 
+  async function handleAdminLogOut() {
+    await adminLogOut()
+    show('admin')
+  }
+
   const seekerCta = !seeker ? 'Request a match' : me ? 'Go to my matches' : 'Finish your profile'
   const matchmakerCta = !staff ? 'Apply to be a matchmaker' : isPendingStaff ? 'View my application' : 'Open the backoffice'
   // Public log-in / sign-up forms (seekers only).
@@ -244,6 +292,47 @@ function App() {
     signedOutOf === 'seeker'
       ? 'You’ve been signed out of your seeker account. The backoffice uses a separate staff account.'
       : undefined
+
+  if (area === 'admin') {
+    return (
+      <div className="app">
+        <header className="topbar backoffice">
+          <button type="button" className="brand" onClick={() => show('admin')} aria-label="MatchMe admin">
+            <span className="brand-mark" aria-hidden="true">♥</span> MatchMe <span className="backoffice-tag">Admin</span>
+          </button>
+          <div className="topbar-right">
+            {admin && (
+              <div className="account">
+                <span className="muted small" title={admin.email}>
+                  {admin.email}
+                </span>
+                <button type="button" className="btn ghost small-btn" onClick={handleAdminLogOut}>
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        <main className="content">
+          {loading && <p className="muted loading">Loading…</p>}
+          {!loading && screen === 'admin-forgot' && <ForgotPasswordForm realm="admin" onBack={() => show('admin')} />}
+          {!loading && screen === 'admin' && !admin && (
+            <AuthForm
+              key="admin"
+              mode="login"
+              audience="admin"
+              onDone={() => show('admin')}
+              onCancel={() => show('home')}
+              onForgot={() => show('admin-forgot')}
+            />
+          )}
+          {!loading && screen === 'admin' && admin &&
+            (adminData ? <AdminDashboard data={adminData} /> : <p className="muted loading">Loading…</p>)}
+        </main>
+      </div>
+    )
+  }
 
   if (area === 'backoffice') {
     return (
@@ -295,18 +384,6 @@ function App() {
               onSwitch={() => show('apply')}
               onDone={() => show('staff')}
               onCancel={() => show('home')}
-              onForgot={() => show('staff-forgot')}
-              notice={signedOutNotice}
-            />
-          )}
-          {!loading && screen === 'apply' && (
-            <AuthForm
-              key="apply"
-              mode="signup"
-              audience="matchmaker"
-              onSwitch={() => show('staff')}
-              onDone={() => show('staff')}
-              onCancel={() => show('join')}
               onForgot={() => show('staff-forgot')}
               notice={signedOutNotice}
             />
@@ -394,7 +471,7 @@ function App() {
             onLogin={seeker ? undefined : () => show('login')}
             onFeatured={() => show('featured')}
             onJoin={seeker ? undefined : () => show('join')}
-            onStaffLogin={() => void enterBackoffice()}
+            onMatchmakerLogin={() => void enterBackoffice()}
           />
         )}
 
@@ -402,10 +479,27 @@ function App() {
           <MatchmakerLanding
             ctaLabel={matchmakerCta}
             onStart={startAsMatchmaker}
-            onLogin={staff ? undefined : () => void enterBackoffice()}
             onFeatured={() => show('featured')}
             onSwitch={() => show('home')}
           />
+        )}
+
+        {!loading && screen === 'apply' && (
+          <AuthForm
+            key="apply"
+            mode="signup"
+            audience="matchmaker"
+            onDone={(_user, email) => {
+              setAppliedEmail(email ?? '')
+              show('application-sent')
+            }}
+            onCancel={() => show('join')}
+            onForgot={() => show('staff-forgot')}
+          />
+        )}
+
+        {!loading && screen === 'application-sent' && (
+          <ApplicationReceived email={appliedEmail} onHome={() => show('home')} />
         )}
 
         {!loading && screen === 'featured' && (
@@ -436,7 +530,7 @@ function App() {
         {!loading && screen === 'reset' && link?.kind === 'reset' && (
           <ResetPasswordForm
             token={link.token}
-            onDone={(realm) => (realm === 'staff' ? show('staff') : openApp('home'))}
+            onDone={(realm) => (realm === 'admin' ? show('admin') : realm === 'staff' ? show('staff') : openApp('home'))}
             onRequestNew={() => show('forgot')}
           />
         )}

@@ -11,6 +11,7 @@
     "dev:web": "vite",
     "dev:api": "node --disable-warning=ExperimentalWarning --watch server/index.ts",
     "seed": "node --disable-warning=ExperimentalWarning server/seed.ts",
+    "create-admin": "node --disable-warning=ExperimentalWarning server/create-admin.ts",
     "build": "tsc -b && vite build",
     "start": "node --disable-warning=ExperimentalWarning server/index.ts --serve-dist",
     "lint": "oxlint",

@@ -5,6 +5,7 @@ import { proposalState, requestStatus, unproposedRequests } from '../../lib/requ
 import { actions, allMembers, findMember, type AppData, type MatchmakerData } from '../../lib/store'
 import type { MatchRequest, Profile } from '../../types'
 import { CandidateCard, ContactLine, MemberLine } from '../shared/CandidateCard'
+import { PhotoCarousel } from '../shared/PhotoCarousel'
 import { MatchmakerAvatar } from '../shared/MatchmakerCard'
 import { PhysicalSummary } from '../shared/PhysicalSummary'
 import { Portrait } from '../shared/Portrait'
@@ -119,7 +120,8 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
   const candidates = useMemo(() => {
     const alreadyProposed = new Set(request.proposals.map((p) => p.candidateId))
     return allMembers(data)
-      .filter((c) => c.id !== seeker.id && !alreadyProposed.has(c.id))
+      // Members a super user suspended can't be proposed.
+      .filter((c) => c.id !== seeker.id && !alreadyProposed.has(c.id) && !c.suspended)
       .filter((c) => asked.has(c.id) || !mutualOnly || isMutuallyCompatible(seeker, c))
       .map((c) => ({ profile: c, fit: requestFit(seeker.request, c), theirFit: requestFit(c.request, seeker) }))
       .sort(
@@ -175,6 +177,7 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
             )}
           </div>
         </header>
+        <PhotoCarousel profile={seeker} />
         <RequestSummary request={seeker.request} />
         <details>
           <summary>{seeker.name}'s own physical profile</summary>

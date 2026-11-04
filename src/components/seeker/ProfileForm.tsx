@@ -31,6 +31,8 @@ const WIZARD_STEP = 3
 const MIN_MESSAGE_LENGTH = 20
 
 const NO_CONTACT: PreferredContact = { method: '', value: '' }
+/** Matches the server's limit. */
+const MAX_PHOTOS = 6
 
 const LOCATION_SUGGESTIONS = [...new Set([...COUNTRIES, ...SAMPLE_PROFILES.map((p) => p.city)])].sort()
 
@@ -98,15 +100,34 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
     setDraft((d) => ({ ...d, contact: { ...(d.contact ?? NO_CONTACT), ...patch } }))
   const contactIsEmail = contact.method === 'Email'
 
-  async function onPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+  // Drafts saved before multiple photos existed only have `photo`.
+  const photos = draft.photos ?? (draft.photo ? [draft.photo] : [])
+  /** The first photo is the main one, used for the portrait. */
+  const setPhotos = (next: string[]) => update({ photos: next, photo: next[0] })
+
+  async function onPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])]
     event.target.value = ''
-    if (!file) return
+    if (files.length === 0) return
+    const room = MAX_PHOTOS - photos.length
     try {
-      update({ photo: await resizeImage(file) })
+      const added = await Promise.all(files.slice(0, room).map((file) => resizeImage(file, 800)))
+      setDraft((d) => {
+        const current = d.photos ?? (d.photo ? [d.photo] : [])
+        const next = [...current, ...added].slice(0, MAX_PHOTOS)
+        return { ...d, photos: next, photo: next[0] }
+      })
+      setErrors(files.length > room ? [`You can add up to ${MAX_PHOTOS} photos, so only the first ${room} were added.`] : [])
     } catch (error) {
       setErrors([(error as Error).message])
     }
+  }
+
+  function movePhoto(from: number, to: number) {
+    const next = [...photos]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setPhotos(next)
   }
 
   function goTo(nextStep: number) {
@@ -189,22 +210,73 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             <Portrait profile={draft} size={96} />
             <div>
               <div className="photo-actions">
-                <label className="btn ghost">
-                  {draft.photo ? 'Change photo' : 'Upload a photo'}
-                  <input type="file" accept="image/*" hidden onChange={onPhoto} />
+                <label className="btn ghost" aria-disabled={photos.length >= MAX_PHOTOS || undefined}>
+                  {photos.length ? 'Add photos' : 'Upload photos'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    disabled={photos.length >= MAX_PHOTOS}
+                    onChange={onPhotos}
+                  />
                 </label>
-                {draft.photo && (
-                  <button type="button" className="link-btn" onClick={() => update({ photo: undefined })}>
-                    Remove
-                  </button>
-                )}
+                <span className="muted small">
+                  {photos.length} of {MAX_PHOTOS}
+                </span>
               </div>
               <p className="hint small">
-                Your matchmaker shows this to seekers you're proposed to. Without a photo, an illustration based on
-                your features is used.
+                Add up to {MAX_PHOTOS} photos of yourself. The first is your main photo; your matchmaker and people
+                you're proposed to can scroll through the rest. Without a photo, an illustration based on your
+                features is used.
               </p>
             </div>
           </div>
+          {photos.length > 0 && (
+            <ul className="photo-grid">
+              {photos.map((src, i) => (
+                <li key={src}>
+                  <img src={src} alt={`Your photo ${i + 1}`} />
+                  {i === 0 && <span className="badge photo-main">Main photo</span>}
+                  <div className="photo-tools">
+                    {i > 0 && (
+                      <button type="button" className="link-btn" onClick={() => movePhoto(i, 0)}>
+                        Make main
+                      </button>
+                    )}
+                    {i > 0 && (
+                      <button
+                        type="button"
+                        className="link-btn"
+                        aria-label={`Move photo ${i + 1} earlier`}
+                        onClick={() => movePhoto(i, i - 1)}
+                      >
+                        ←
+                      </button>
+                    )}
+                    {i < photos.length - 1 && (
+                      <button
+                        type="button"
+                        className="link-btn"
+                        aria-label={`Move photo ${i + 1} later`}
+                        onClick={() => movePhoto(i, i + 1)}
+                      >
+                        →
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="link-btn danger"
+                      aria-label={`Remove photo ${i + 1}`}
+                      onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="grid-2">
             <label className="field">
               <span>Name</span>

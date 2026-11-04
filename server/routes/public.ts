@@ -1,6 +1,6 @@
 import express from 'express'
 import { signedInUsers } from '../auth.ts'
-import { canViewProfile, matchmakerRow, profileRow, publicCards } from '../data.ts'
+import { canViewProfile, galleryRows, matchmakerRow, profileRow, publicCards } from '../data.ts'
 import { all, get } from '../db.ts'
 import { fail } from '../http.ts'
 import { photoPath } from '../photos.ts'
@@ -43,6 +43,16 @@ publicRoutes.get('/photos/:profileId', (req, res) => {
   if (!row?.photo_file || !allowed(row.id)) return fail(res, 404, 'Not found.')
   res.set('Cache-Control', row.public_listing ? 'public, max-age=3600' : 'private, max-age=3600')
   res.sendFile(photoPath(row.photo_file))
+})
+
+/** One of a member's photos. Unlike the main photo, these aren't public even on a public listing. */
+publicRoutes.get('/photos/:profileId/:photoId', (req, res) => {
+  const { profileId, photoId } = req.params
+  const photo = galleryRows(profileId).find((g) => g.id === photoId)
+  const allowed = signedInUsers(res).some((u) => canViewProfile(u, profileId, { publicListingCounts: false }))
+  if (!photo || !allowed) return fail(res, 404, 'Not found.')
+  res.set('Cache-Control', 'private, max-age=86400')
+  res.sendFile(photoPath(photo.file))
 })
 
 /** Matchmakers' photos are part of their professional profile, so they're public. */

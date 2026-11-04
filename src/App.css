@@ -1042,6 +1042,115 @@
   margin-bottom: 6px;
 }
 
+.photo-actions [aria-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The photos being edited on the profile form. */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photo-grid li {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.photo-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.photo-grid .photo-main {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}
+
+.photo-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.photo-tools .danger {
+  color: var(--danger);
+}
+
+/* A member's photos to scroll through on a profile. */
+.photo-carousel {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.photo-track {
+  /* Positioned so each photo's offsetLeft is measured from the strip. */
+  position: relative;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  border-radius: 10px;
+}
+
+.photo-track:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.photo-track img {
+  flex: 0 0 min(78%, 240px);
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 10px;
+  scroll-snap-align: start;
+  background: var(--border);
+  user-select: none;
+}
+
+.photo-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.photo-dots {
+  display: flex;
+  gap: 5px;
+  margin-right: auto;
+}
+
+.photo-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.photo-dots span[data-current] {
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-track {
+    scroll-behavior: auto;
+  }
+}
+
 .link-btn {
   align-self: flex-start;
   border: 0;
@@ -2718,4 +2827,66 @@ details summary {
   .stepper li[data-state='current'] .step-label {
     display: inline;
   }
+}
+
+/* ---------- Admin (/admin) ---------- */
+.admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-row[data-suspended] {
+  border-style: dashed;
+}
+
+.admin-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-row-info strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-profile {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.badge.suspended-badge {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
 }

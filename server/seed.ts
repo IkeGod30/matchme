@@ -8,6 +8,7 @@
 //
 // Matchmaker login: MATCHMAKER_EMAIL / MATCHMAKER_PASSWORD env vars, otherwise
 // matchmaker@matchme.local with a generated password that is printed once.
+// Super user (/admin): ADMIN_EMAIL / ADMIN_PASSWORD the same way (admin@matchme.local).
 
 import { randomBytes } from 'node:crypto'
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
@@ -152,3 +153,8 @@ if (get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
   console.log(`  password: ${process.env.MATCHMAKER_PASSWORD ? '(from MATCHMAKER_PASSWORD)' : password}`)
   console.log('  Save this password — it is not shown again. Re-run with --reset to create a new one.\n')
 }
+
+// The super user who manages every account at /admin.
+const { createSuperUserFromEnv } = await import('./accounts.ts')
+if (get(`SELECT 1 FROM users WHERE role = 'admin'`)) console.log('A super user already exists.')
+else await createSuperUserFromEnv()

@@ -50,6 +50,11 @@ export interface Profile {
   contact?: PreferredContact
   /** Image URL (uploaded data URL or bundled demo photo). Without one, an illustrated portrait is drawn from `physical`. */
   photo?: string
+  /**
+   * All of the member's photos in order (the first is `photo`). When saving, new ones are data URLs.
+   * Only the main photo appears on public cards; the rest are for the member, matchmakers and matches.
+   */
+  photos?: string[]
   /** Sample member that is not a real person; labelled as such wherever shown. */
   isDemo?: boolean
   /**
@@ -57,6 +62,8 @@ export interface Profile {
    * otherwise only the member, their matchmaker and people they're matched with see the profile.
    */
   publicListing?: boolean
+  /** Matchmakers only: a super user suspended this member, so they can't be proposed. */
+  suspended?: boolean
   physical: PhysicalProfile
   request: PartnerRequest
 }
@@ -147,4 +154,33 @@ export interface MatchRequest {
   /** Set when the seeker declined everything and asked for another round. */
   moreRequestedAt?: number
   closedAt?: number
+}
+
+/** An account as super users see it in /admin. */
+export interface AccountSummary {
+  id: string
+  email: string
+  createdAt: number
+  suspendedAt?: number
+  /** Seekers: the name on their profile; matchmakers: their display name. */
+  name?: string
+  /** Seekers: where they live, from their profile. */
+  location?: string
+  /** Seekers: their profile, once they've made one. */
+  profileId?: string
+  /** Seekers: requests that are still open. */
+  openRequests?: number
+  /** Matchmakers: whether they also have a super-user account. */
+  isSuperUser?: boolean
+  /** Super users: the matchmaker account they were promoted from. */
+  promotedFrom?: string
+}
+
+/** Everything the /admin area shows. */
+export interface AdminData {
+  me: { id: string; email: string }
+  seekers: AccountSummary[]
+  matchmakers: AccountSummary[]
+  admins: AccountSummary[]
+  applications: Application[]
 }

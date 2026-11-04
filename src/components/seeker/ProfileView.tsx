@@ -1,6 +1,7 @@
 import { actions } from '../../lib/store'
 import type { Profile } from '../../types'
 import { ContactLine, MemberLine } from '../shared/CandidateCard'
+import { PhotoCarousel } from '../shared/PhotoCarousel'
 import { PhysicalSummary } from '../shared/PhysicalSummary'
 import { Portrait } from '../shared/Portrait'
 import { RequestSummary } from '../shared/RequestSummary'
@@ -23,6 +24,7 @@ export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; o
             />
           </div>
         </header>
+        <PhotoCarousel profile={profile} />
         {profile.bio && <p className="bio">{profile.bio}</p>}
         <VisibilitySetting
           isPublic={!!profile.publicListing}
