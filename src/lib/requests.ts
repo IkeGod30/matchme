@@ -60,6 +60,13 @@ export function unproposedRequests(r: MatchRequest): MatchRequest['requestedMemb
   return (r.requestedMembers ?? []).filter((a) => !proposed.has(a.candidateId))
 }
 
+/** The seeker's requests that aren't closed, newest first. */
+export function openRequestsFor(requests: MatchRequest[], seekerId: string): MatchRequest[] {
+  return requests
+    .filter((r) => r.seekerId === seekerId && requestStatus(r) !== 'closed')
+    .sort((a, b) => b.createdAt - a.createdAt)
+}
+
 /** The seeker's most recent request, if any. */
 export function latestRequestFor(requests: MatchRequest[], seekerId: string): MatchRequest | undefined {
   return requests.filter((r) => r.seekerId === seekerId).sort((a, b) => b.createdAt - a.createdAt)[0]

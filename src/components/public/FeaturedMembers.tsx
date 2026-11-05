@@ -1,6 +1,14 @@
 import { useFeatured } from '../../lib/store'
-import type { Profile } from '../../types'
+import type { Gender, Profile } from '../../types'
 import { Portrait } from '../shared/Portrait'
+
+const PLURAL: Record<Gender, string> = { woman: 'women', man: 'men', nonbinary: 'non-binary people' }
+
+/** "women", "women and men", "women, men and non-binary people". */
+function pluralList(genders: Gender[]): string {
+  const words = genders.map((g) => PLURAL[g])
+  return words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+}
 
 interface PublicCardProps {
   profile: Profile
@@ -56,8 +64,11 @@ interface FeaturedMembersProps {
   canRequest: boolean
   /** Members already requested or proposed on the seeker's open request. */
   requestedIds: Set<string>
+  /** The signed-in seeker's target genders; only those members are shown. Null shows everyone. */
+  seeking: Gender[] | null
   onRequestMember: (memberId: string) => void
   onRequestMatch: () => void
+  onEditPreferences: () => void
 }
 
 export function FeaturedMembers({
@@ -65,10 +76,17 @@ export function FeaturedMembers({
   signedIn,
   canRequest,
   requestedIds,
+  seeking,
   onRequestMember,
   onRequestMatch,
+  onEditPreferences,
 }: FeaturedMembersProps) {
-  const featured = useFeatured()
+  const all = useFeatured()
+  const filtering = !!seeking && seeking.length > 0
+  // The seeker's own card stays so they can see how they appear.
+  const featured = filtering ? all.filter((p) => seeking.includes(p.gender) || p.id === meId) : all
+  const shown = filtering ? pluralList(seeking) : ''
+  const others = featured.filter((p) => p.id !== meId)
 
   return (
     <section className="stack">
@@ -82,7 +100,22 @@ export function FeaturedMembers({
         </div>
       </div>
 
-      {featured.length === 0 ? (
+      {filtering && (
+        <p className="muted small">
+          Showing {shown}, as set in your preferences.{' '}
+          <button type="button" className="link-btn" onClick={onEditPreferences}>
+            Change
+          </button>
+        </p>
+      )}
+
+      {filtering && others.length === 0 ? (
+        <div className="card empty">
+          <p className="muted">
+            No featured {shown} right now. Check back soon, or request a match and your matchmaker will search for you.
+          </p>
+        </div>
+      ) : featured.length === 0 ? (
         <div className="card empty">
           <p className="muted">No one has chosen to be featured yet.</p>
         </div>

@@ -161,35 +161,46 @@ seekerRoutes.delete('/account', (req, res) => {
   res.json({ ok: true })
 })
 
+/** Opens a new request. A seeker may have several open at once; they all use the profile's preferences. */
 seekerRoutes.post('/requests', (_req, res) => {
   const mine = myProfileId(res)
   if (!mine) return
-  const latest = latestRequestFor(requestsForSeeker(mine), mine)
-  if (latest && requestStatus(latest) !== 'closed') return fail(res, 409, 'You already have an open request.')
   run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', randomUUID(), mine, Date.now())
   res.status(201).json({ ok: true })
 })
 
-/** Asks to be matched with a featured member: added to the open request, or a new one is opened. */
+/**
+ * Asks to be matched with a featured member: added to the newest open request that isn't matched
+ * yet, or a new request is opened.
+ */
 seekerRoutes.post('/featured/:id/request', (req, res) => {
   const mine = myProfileId(res)
   if (!mine) return
   const candidate = profileRow(req.params.id)
   if (!candidate || candidate.public_listing !== 1) return fail(res, 404, 'This member is no longer featured.')
   if (candidate.id === mine) return fail(res, 400, 'You can’t request a match with yourself.')
-
-  const latest = latestRequestFor(requestsForSeeker(mine), mine)
-  const status = latest && requestStatus(latest)
-  if (status === 'matched') {
-    return fail(res, 409, 'You’re already matched on your current request. Close it first to request someone new.')
+  const them = toProfile(candidate)
+  const { seeking } = toProfile(profileRow(mine)!).request
+  if (seeking.length > 0 && !seeking.includes(them.gender)) {
+    return fail(res, 400, `${them.name} isn’t someone you’re looking for. Update the gender in your preferences to request them.`)
   }
-  if (latest && status !== 'closed' && latest.proposals.some((p) => p.candidateId === candidate.id)) {
+
+  const open = requestsForSeeker(mine).filter((r) => requestStatus(r) !== 'closed')
+  if (open.some((r) => r.proposals.some((p) => p.candidateId === candidate.id))) {
     return fail(res, 409, 'Your matchmaker has already proposed this person to you.')
   }
+  // Already asked for on one of the open requests: nothing more to do.
+  if (open.some((r) => (r.requestedMembers ?? []).some((a) => a.candidateId === candidate.id))) {
+    return res.status(201).json({ ok: true })
+  }
+  const target = latestRequestFor(
+    open.filter((r) => requestStatus(r) !== 'matched'),
+    mine,
+  )
 
   const now = Date.now()
   transaction(() => {
-    let requestId = latest && status !== 'closed' ? latest.id : undefined
+    let requestId = target?.id
     if (!requestId) {
       requestId = randomUUID()
       run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', requestId, mine, now)

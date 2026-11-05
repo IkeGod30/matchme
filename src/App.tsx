@@ -13,7 +13,7 @@ import { ProfileView } from './components/seeker/ProfileView'
 import { SeekerHome } from './components/seeker/SeekerHome'
 import { emptyPhysical, emptyRequest } from './data/attributes'
 import { clearFeaturedPick, clearProfileDraft, loadFeaturedPick, saveFeaturedPick } from './lib/draft'
-import { latestRequestFor, requestStatus } from './lib/requests'
+import { openRequestsFor, requestStatus } from './lib/requests'
 import { actions, adminLogOut, logOut, setArea, staffLogOut, useStartStore, useStore, type Area } from './lib/store'
 import type { Profile } from './types'
 import './App.css'
@@ -218,13 +218,14 @@ function App() {
     else show('apply')
   }
 
-  // The seeker's open request, and who is already asked for or proposed on it.
-  const latest = me ? latestRequestFor(data.requests, me.id) : undefined
-  const openRequest = latest && !latest.closedAt ? latest : undefined
-  const requestedIds = new Set([
-    ...(openRequest?.requestedMembers ?? []).map((a) => a.candidateId),
-    ...(openRequest?.proposals ?? []).map((p) => p.candidateId),
-  ])
+  // Who is already asked for or proposed on any of the seeker's open requests.
+  const openRequests = me ? openRequestsFor(data.requests, me.id) : []
+  const requestedIds = new Set(
+    openRequests.flatMap((r) => [
+      ...(r.requestedMembers ?? []).map((a) => a.candidateId),
+      ...r.proposals.map((p) => p.candidateId),
+    ]),
+  )
 
   /** "Request a match with …" on a featured card. Without a profile yet, the pick waits until there is one. */
   function requestMember(memberId: string) {
@@ -508,8 +509,10 @@ function App() {
             signedIn={!!seeker}
             canRequest
             requestedIds={requestedIds}
+            seeking={seeker && me ? me.request.seeking : null}
             onRequestMember={requestMember}
             onRequestMatch={startAsSeeker}
+            onEditPreferences={() => openApp('profile')}
           />
         )}
 

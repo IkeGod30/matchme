@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatFee } from '../../config'
 import { timeAgo } from '../../lib/format'
 import { requestFit } from '../../lib/matching'
-import { latestRequestFor, proposalState, requestStatus, unproposedRequests, type RequestStatus } from '../../lib/requests'
+import { latestRequestFor, openRequestsFor, proposalState, requestStatus, unproposedRequests, type RequestStatus } from '../../lib/requests'
 import { actions, findMember, useFeatured, type AppData } from '../../lib/store'
 import type { MatchRequest, Profile, Proposal } from '../../types'
 import { CandidateCard } from '../shared/CandidateCard'
@@ -180,17 +180,15 @@ function IncomingInterest({ me, data }: { me: Profile; data: AppData }) {
 }
 
 export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: AppData; onEditRequest: () => void }) {
-  const [paying, setPaying] = useState<{ proposalId: string; candidate: Profile } | null>(null)
-  const featured = useFeatured()
-  const request = latestRequestFor(data.requests, me.id)
-  const status = request ? requestStatus(request) : undefined
+  const open = openRequestsFor(data.requests, me.id)
 
-  if (!request || status === 'closed') {
+  if (open.length === 0) {
+    const hadOne = !!latestRequestFor(data.requests, me.id)
     return (
       <div className="stack">
         <IncomingInterest me={me} data={data} />
         <section className="card empty">
-          <h2>{request ? 'Your last request is closed' : 'Ready to be matched?'}</h2>
+          <h2>{hadOne ? 'Your last request is closed' : 'Ready to be matched?'}</h2>
           <p className="muted">
             Send your request to a matchmaker. They’ll review your preferences and hand-pick people for you to accept
             or decline. No upfront fees — you only pay when a match is mutual.
@@ -208,6 +206,60 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
     )
   }
 
+  // Numbered oldest first, shown newest first.
+  const numbered = [...open].reverse()
+
+  return (
+    <div className="stack">
+      <IncomingInterest me={me} data={data} />
+
+      <section className="card toolbar request-bar">
+        <div>
+          <strong>
+            You have {open.length} open {open.length === 1 ? 'request' : 'requests'}
+          </strong>
+          <p className="muted small">
+            Every request uses the preferences in your profile. Start another to run a separate search alongside your
+            current {open.length === 1 ? 'one' : 'ones'}.
+          </p>
+        </div>
+        <div className="empty-actions">
+          <button type="button" className="btn ghost" onClick={onEditRequest}>
+            Review my preferences
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => {
+              if (confirm('Start another match request? It uses the same preferences as your other requests.')) {
+                void actions.submitRequest()
+              }
+            }}
+          >
+            Start another request
+          </button>
+        </div>
+      </section>
+
+      {open.map((request) => (
+        <RequestPanel
+          key={request.id}
+          me={me}
+          data={data}
+          request={request}
+          title={open.length === 1 ? 'Your match request' : `Match request ${numbered.indexOf(request) + 1}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** One open request: its progress, matchmaker, notes and proposals. */
+function RequestPanel({ me, data, request, title }: { me: Profile; data: AppData; request: MatchRequest; title: string }) {
+  const [paying, setPaying] = useState<{ proposalId: string; candidate: Profile } | null>(null)
+  const featured = useFeatured()
+  const status = requestStatus(request)
+
   const withCandidates = request.proposals
     .map((proposal) => ({ proposal, candidate: findMember(data, proposal.candidateId) }))
     .filter((x): x is { proposal: Proposal; candidate: Profile } => !!x.candidate)
@@ -222,7 +274,7 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
     withCandidates.filter((x) => proposalState(x.proposal) === state).map((x) => x.candidate.name).join(' and ')
 
   function withdraw() {
-    if (confirm('Withdraw your match request? Any pending proposals will be dropped.')) actions.closeRequest(request!.id)
+    if (confirm('Withdraw this match request? Any pending proposals on it will be dropped.')) actions.closeRequest(request.id)
   }
 
   const renderCard = ({ proposal, candidate }: { proposal: Proposal; candidate: Profile }) => (
@@ -237,19 +289,17 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
   )
 
   return (
-    <div className="stack">
-      <IncomingInterest me={me} data={data} />
-
-      <section className="stack">
+    <>
+      <section className="stack request-panel">
         <div className="toolbar">
           <div>
-            <h2>Your match request</h2>
+            <h2>{title}</h2>
             <p className="muted">Sent {timeAgo(request.createdAt)}</p>
           </div>
-          <StatusChip status={status!} audience="seeker" />
+          <StatusChip status={status} audience="seeker" />
         </div>
 
-        <Tracker status={status!} />
+        <Tracker status={status} />
 
         {request.matchmaker ? (
           <MatchmakerCard matchmaker={request.matchmaker} />
@@ -371,6 +421,6 @@ export function SeekerHome({ me, data, onEditRequest }: { me: Profile; data: App
           onClose={() => setPaying(null)}
         />
       )}
-    </div>
+    </>
   )
 }

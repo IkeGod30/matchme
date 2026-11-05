@@ -10,9 +10,12 @@ once a match is mutual.
 ## Three kinds of users
 
 - **Seekers** sign up freely, describe themselves and the partner they want, and accept or
-  decline the matches proposed to them. They can also ask for a specific member from the Featured
-  page ("Request a match with …"); the member is added to their open request (or opens one) and
-  shown to the matchmaker at the top of the candidate list. Screens: `src/components/seeker/`,
+  decline the matches proposed to them. They can have several open requests at once (each one a
+  separate search, all using the preferences in their profile). They can also ask for a specific
+  member from the Featured page ("Request a match with …"), which shows a signed-in seeker only
+  members of the gender(s) they're looking for; the member is added to their newest
+  open request that isn't matched yet (or opens one) and shown to the matchmaker at the top of the
+  candidate list. Screens: `src/components/seeker/`,
   API: `server/routes/seeker.ts`.
 - **Matchmakers** are back-office staff. They either apply publicly (footer → Become a matchmaker,
   `/#join` — hidden from signed-in seekers, who are shown the home page instead) or are invited by

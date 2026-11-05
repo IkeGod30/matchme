@@ -1553,6 +1553,18 @@
   flex-wrap: wrap;
 }
 
+/* Seeker home with several open requests. */
+.request-bar {
+  align-items: center;
+}
+.request-bar p {
+  margin: 4px 0 0;
+}
+.request-panel + .request-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
 /* ---------- Matchmaker ---------- */
 .mm-layout {
   display: grid;
