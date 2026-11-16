@@ -117,7 +117,7 @@ export function publicCards() {
     return {
       id: p.id,
       name: p.name,
-      age: p.age,
+      // Age is private: never on public cards.
       gender: p.gender,
       city: p.city,
       profession: p.profession,

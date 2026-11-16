@@ -1,4 +1,4 @@
-import { RELATIONSHIP_STATUSES, contactProblem } from '../src/data/options.ts'
+import { RELATIONSHIP_STATUSES, RELIGIONS, RELIGION_PREFERENCES, contactProblem } from '../src/data/options.ts'
 import type { Gender, Profile } from '../src/types.ts'
 import { BadRequest } from './photos.ts'
 
@@ -64,6 +64,11 @@ export function validateProfile(input: unknown): Omit<Profile, 'id' | 'photo' | 
     throw new BadRequest('Relationship status preference is invalid.')
   }
 
+  const religion = text(input.religion, 'Religion', 60, true)
+  if (!RELIGIONS.includes(religion)) throw new BadRequest('Religion is invalid.')
+  const religions = list(request.religions ?? [], 'Religions')
+  if (religions.some((r) => !RELIGION_PREFERENCES.includes(r))) throw new BadRequest('Religion preference is invalid.')
+
   const contact = input.contact
   if (!isObject(contact)) throw new BadRequest('Preferred contact is required.')
   const contactMethod = text(contact.method, 'Preferred contact method', 40, true)
@@ -80,6 +85,7 @@ export function validateProfile(input: unknown): Omit<Profile, 'id' | 'photo' | 
     nationality: text(input.nationality, 'Nationality', 80, true),
     race: text(input.race, 'Race', 80, true),
     relationshipStatus,
+    religion,
     profession: text(input.profession, 'Profession', 80, true),
     jobTitle: text(input.jobTitle ?? '', 'Job title', 120),
     bio: text(input.bio ?? '', 'About me', 2000),
@@ -95,6 +101,7 @@ export function validateProfile(input: unknown): Omit<Profile, 'id' | 'photo' | 
       nationalities: list(request.nationalities, 'Nationalities'),
       professions: list(request.professions, 'Professions'),
       relationshipStatuses,
+      religions,
       physical: wanted as Profile['request']['physical'],
     },
   }

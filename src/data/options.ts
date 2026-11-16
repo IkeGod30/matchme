@@ -21,6 +21,23 @@ export const RELATIONSHIP_STATUSES = [
   'Widowed (without kids)',
 ]
 
+/** A member's own religion. The last option can't be asked for in a partner preference. */
+export const RELIGIONS = [
+  'Christian',
+  'Muslim',
+  'Jewish',
+  'Hindu',
+  'Buddhist',
+  'Sikh',
+  'Traditional / indigenous beliefs',
+  'Spiritual but not religious',
+  'Agnostic',
+  'Atheist',
+  'Other',
+  'Prefer not to say',
+]
+export const RELIGION_PREFERENCES = RELIGIONS.filter((r) => r !== 'Prefer not to say')
+
 export const PROFESSIONS = [
   'Healthcare',
   'Technology',

@@ -44,6 +44,7 @@ export function MemberLine({ profile }: { profile: Profile }) {
         {profile.relationshipStatus && ` · ${profile.relationshipStatus}`}
         <br />
         {profile.city}, {profile.country} · {profile.nationality} · {profile.race}
+        {profile.religion && profile.religion !== 'Prefer not to say' && ` · ${profile.religion}`}
       </p>
       <span className="member-tags">
         {profile.isDemo && (

@@ -26,7 +26,7 @@ function PublicCard({ profile, isMe, canRequest, requested, onRequest }: PublicC
       <Portrait profile={profile} size={160} />
       <div className="public-body">
         <h3>
-          {profile.name}, {profile.age}
+          {profile.name}
           {isMe && <span className="badge applies">You</span>}
         </h3>
         <p className="muted small">

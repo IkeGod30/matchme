@@ -105,6 +105,7 @@ function newProfile(): Profile {
     nationality: '',
     race: '',
     relationshipStatus: '',
+    religion: '',
     profession: '',
     jobTitle: '',
     bio: '',

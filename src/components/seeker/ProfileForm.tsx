@@ -14,7 +14,16 @@ import {
   selfFeaturesFor,
   wantedOptions,
 } from '../../data/attributes'
-import { CONTACT_METHODS, COUNTRIES, PROFESSIONS, RACES, RELATIONSHIP_STATUSES, contactProblem } from '../../data/options'
+import {
+  CONTACT_METHODS,
+  COUNTRIES,
+  PROFESSIONS,
+  RACES,
+  RELATIONSHIP_STATUSES,
+  RELIGIONS,
+  RELIGION_PREFERENCES,
+  contactProblem,
+} from '../../data/options'
 import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
 import { resizeImage } from '../../lib/format'
 import type { PartnerRequest, PhysicalProfile, PreferredContact, Profile } from '../../types'
@@ -52,6 +61,7 @@ function validate(step: number, p: Profile): string[] {
     if (!p.nationality) errors.push('Choose your nationality.')
     if (!p.race) errors.push('Choose your race / ethnicity.')
     if (!p.relationshipStatus) errors.push('Choose your relationship status.')
+    if (!p.religion) errors.push('Choose your religion (or “Prefer not to say”).')
     if (!p.profession) errors.push('Choose your profession.')
     const contact = p.contact ?? NO_CONTACT
     const contactError = contactProblem(contact.method, contact.value)
@@ -344,6 +354,15 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
               </select>
             </label>
             <label className="field">
+              <span>Religion</span>
+              <select value={draft.religion ?? ''} onChange={(e) => update({ religion: e.target.value })}>
+                <option value="">Select…</option>
+                {RELIGIONS.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               <span>Profession</span>
               <select value={draft.profession} onChange={(e) => update({ profession: e.target.value })}>
                 <option value="">Select…</option>
@@ -521,6 +540,14 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
             options={RELATIONSHIP_STATUSES}
             selected={draft.request.relationshipStatuses ?? []}
             onChange={(relationshipStatuses) => updateRequest({ relationshipStatuses })}
+          />
+          <ChipSelect
+            label="Religion"
+            hint={draft.request.religions?.length ? `${draft.request.religions.length} selected` : 'open to all'}
+            multiple
+            options={RELIGION_PREFERENCES}
+            selected={draft.request.religions ?? []}
+            onChange={(religions) => updateRequest({ religions })}
           />
         </section>
       )}

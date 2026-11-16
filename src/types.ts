@@ -19,6 +19,8 @@ export interface PartnerRequest {
   nationalities: string[]
   professions: string[]
   relationshipStatuses: string[]
+  /** From RELIGION_PREFERENCES. May be missing on requests saved before it existed. */
+  religions?: string[]
   physical: PhysicalPreferences
 }
 
@@ -40,6 +42,8 @@ export interface Profile {
   race: string
   /** One of RELATIONSHIP_STATUSES. May be missing on profiles saved before it existed. */
   relationshipStatus: string
+  /** One of RELIGIONS. Required for seekers; missing on sample members and on profiles saved before it existed. */
+  religion?: string
   profession: string
   jobTitle: string
   bio: string

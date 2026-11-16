@@ -351,9 +351,7 @@ function RequestPanel({ me, data, request, title }: { me: Profile; data: AppData
                 <li key={p.id}>
                   <Portrait profile={p} size={40} round />
                   <span>
-                    <strong>
-                      {p.name}, {p.age}
-                    </strong>
+                    <strong>{p.name}</strong>
                     <span className="muted small"> · {p.city}</span>
                   </span>
                 </li>

@@ -47,6 +47,9 @@ export function requestFit(req: PartnerRequest, p: Profile): Fit {
   if (p.relationshipStatus) {
     check('Relationship status', 'Background', statuses, () => statuses.includes(p.relationshipStatus))
   }
+  // Same for religion. "Prefer not to say" never meets a religion preference.
+  const religions = req.religions ?? []
+  if (p.religion) check('Religion', 'Background', religions, () => religions.includes(p.religion!))
 
   for (const feature of BODY_FEATURES) {
     const value = featureValue(p.physical, feature.key)

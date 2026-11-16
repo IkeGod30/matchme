@@ -239,7 +239,6 @@ export function useFeatured(): Profile[] {
 interface PublicCard {
   id: string
   name: string
-  age: number
   gender: Profile['gender']
   city: string
   profession: string
@@ -256,7 +255,7 @@ function fromPublicCard(c: PublicCard): Profile {
   return {
     id: c.id,
     name: c.name,
-    age: c.age,
+    age: 0, // private: never on public cards
     gender: c.gender,
     city: c.city,
     country: '',

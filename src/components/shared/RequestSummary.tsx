@@ -38,6 +38,10 @@ export function RequestSummary({ request }: { request: PartnerRequest }) {
           <dt>Relationship status</dt>
           <dd>{listOrOpen(request.relationshipStatuses ?? [])}</dd>
         </div>
+        <div>
+          <dt>Religion</dt>
+          <dd>{listOrOpen(request.religions ?? [])}</dd>
+        </div>
       </dl>
 
       <h4>Desired bodily features</h4>
