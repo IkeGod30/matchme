@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { adminLogIn, applyAsMatchmaker, logIn, signUp, staffLogIn, type User } from '../../lib/store'
+import { LegalLink } from '../legal/LegalPages'
 import { TagInput } from '../shared/TagInput'
 import type { Audience } from './Landing'
 
@@ -48,6 +49,21 @@ const INTROS: Record<FormAudience, Record<AuthFormProps['mode'], string>> = {
   },
 }
 
+/** The confidentiality pledge matchmakers accept when they apply or accept an invitation. */
+export function MatchmakerAgreement({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="check agree">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        I’ll keep members’ information confidential, share a member’s profile only with people I propose them to, and
+        never contact members outside MatchMe for personal reasons. I agree to the{' '}
+        <LegalLink kind="safety">matchmaker code of conduct</LegalLink>, the <LegalLink kind="terms">terms of use</LegalLink>{' '}
+        and the <LegalLink kind="privacy">privacy policy</LegalLink>.
+      </span>
+    </label>
+  )
+}
+
 export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot, notice }: AuthFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -65,14 +81,15 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
     event.preventDefault()
     setError(null)
     if (signup && password !== confirm) return setError('Passwords don’t match.')
-    if (applying && !agree) return setError('Please agree to keep members’ information confidential.')
+    if (applying && !agree) return setError('Please agree to the matchmaker code of conduct and keep members’ information confidential.')
+    if (signup && !applying && !agree) return setError('Please confirm you’re 18 or over and agree to the terms and privacy policy.')
     setBusy(true)
     try {
       if (applying) {
         await applyAsMatchmaker({ email, password, displayName, experience, languages, agreeConfidentiality: agree })
         onDone(null, email.trim())
       } else if (signup) {
-        await signUp(email, password)
+        await signUp(email, password, agree)
         onDone(null)
       } else {
         // Each realm has its own log-in: an account only works in its own area.
@@ -158,12 +175,20 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
               suggestions={LANGUAGES}
               onChange={setLanguages}
             />
-            <label className="check agree">
-              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-              I’ll keep members’ information confidential, share a member’s profile only with people I propose them to,
-              and never contact members outside MatchMe for personal reasons.
-            </label>
+            <MatchmakerAgreement checked={agree} onChange={setAgree} />
           </>
+        )}
+
+        {signup && !applying && (
+          <label className="check agree">
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+            <span>
+              I’m 18 or over and I agree to the <LegalLink kind="terms">terms of use</LegalLink> and{' '}
+              <LegalLink kind="privacy">privacy policy</LegalLink>. I consent to MatchMe using the sensitive details I
+              choose to share — such as my ethnicity, religion, photos and the genders I’m interested in — to find
+              matches for me.
+            </span>
+          </label>
         )}
 
         {error && (

@@ -125,10 +125,32 @@ All rules live in the server (`server/data.ts`, `server/index.ts`):
   (`/api/photos/:id/:photoId`) are never public, even on a public listing — only the member,
   matchmakers and people they're matched with can scroll through them.
 - Profiles are private unless the member opts in to a public listing. Public cards only
-  show photo, first name, age, city, job, bio and "looking for" message.
+  show photo, first name, city, job, bio and "looking for" message — never age, religion, race or
+  contact details.
 - The matchmaker role can see all members and requests; super users can see every account.
 
+## Legal notices
+
+The privacy policy, terms of use, cookie notice and safety & conduct page (including the
+matchmaker code of conduct) are at `/#privacy`, `/#terms`, `/#cookies` and `/#safety`, linked
+from the footer of every public page. Their text is in `src/components/legal/LegalPages.tsx`
+and is written to GDPR-level standards, with notes for Nigeria (NDPA 2023), the UK/EU and
+California.
+
+- Seekers must tick a box at sign-up confirming they're 18+, accepting the terms and privacy
+  policy, and giving explicit consent to the use of sensitive details (ethnicity, religion,
+  photos, gender preferences). Matchmakers accept the code of conduct when they apply or accept
+  an invitation. The server refuses sign-ups without it and records the time in
+  `users.terms_accepted_at`.
+- The company name, contact emails, hosting, email and payment providers, governing law and
+  dates are **placeholders** in `src/legal.ts`. Every legal page shows a "Draft" banner until you
+  fill them in and set `draft: false`.
+
 ## Before going live
+
+- **Legal notices:** fill in `src/legal.ts`, write the refund policy in the terms (marked
+  `[REFUND POLICY]`), and have a lawyer in each country you operate in review the pages. In
+  Nigeria, check whether you must register with the NDPC as a data controller.
 
 - **Payments** are a placeholder (`POST /api/seeker/proposals/:id/pay` records a test
   reference). Connect a provider such as Paystack or Stripe and verify payments server-side.

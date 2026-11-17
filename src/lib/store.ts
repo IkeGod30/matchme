@@ -286,8 +286,9 @@ function fromPublicCard(c: PublicCard): Profile {
 
 /* ---------- Auth: seekers (public site) ---------- */
 
-export async function signUp(email: string, password: string): Promise<void> {
-  const { user } = await api<{ user: User }>('POST', '/auth/signup', { email, password })
+/** Seeker sign-up. `agreeTerms`: they confirmed they're 18+ and accepted the terms, privacy policy and sensitive-data consent. */
+export async function signUp(email: string, password: string, agreeTerms: boolean): Promise<void> {
+  const { user } = await api<{ user: User }>('POST', '/auth/signup', { email, password, agreeTerms })
   setState(asSeeker(user))
   await refresh()
 }
@@ -384,8 +385,20 @@ export async function checkInvite(token: string): Promise<{ valid: boolean; emai
   return api('GET', `/public/invites/${encodeURIComponent(token)}`)
 }
 
-export async function signUpMatchmaker(token: string, email: string, password: string, displayName: string): Promise<User> {
-  const { user } = await api<{ user: User }>('POST', '/auth/signup-matchmaker', { token, email, password, displayName })
+export async function signUpMatchmaker(
+  token: string,
+  email: string,
+  password: string,
+  displayName: string,
+  agreeConfidentiality: boolean,
+): Promise<User> {
+  const { user } = await api<{ user: User }>('POST', '/auth/signup-matchmaker', {
+    token,
+    email,
+    password,
+    displayName,
+    agreeConfidentiality,
+  })
   setState(asStaff(user))
   await refresh()
   return user

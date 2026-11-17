@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { ApplicationReceived } from './components/public/ApplicationReceived'
+import { LegalPage } from './components/legal/LegalPages'
+import { LEGAL, LEGAL_PAGES, type LegalPageKind } from './legal'
 import { AuthForm } from './components/public/AuthForm'
 import { FeaturedMembers } from './components/public/FeaturedMembers'
 import { Landing, MatchmakerLanding } from './components/public/Landing'
@@ -33,6 +35,8 @@ type Screen =
   | 'join'
   | 'apply'
   | 'application-sent'
+  // Legal notices (public, linked from the footer on every site page).
+  | LegalPageKind
   // The backoffice (/matchmaker): its own area with a separate matchmaker log-in and session.
   // The invitation sign-up creates a matchmaker account, so it's part of it.
   | 'staff'
@@ -51,7 +55,13 @@ const areaOf = (screen: Screen): Area =>
 const AREA_PATHS: Record<Area, string> = { site: '/', backoffice: '/matchmaker', admin: '/admin' }
 
 /** Public pages with a shareable / bookmarkable link. */
-const PAGE_HASHES: Partial<Record<Screen, string>> = { featured: '#featured', join: '#join' }
+const PAGE_HASHES: Partial<Record<Screen, string>> = {
+  featured: '#featured',
+  join: '#join',
+  ...Object.fromEntries(LEGAL_PAGES.map((p) => [p.kind, `#${p.kind}`])),
+}
+const YEAR = new Date().getFullYear()
+const isLegalPage =(screen: Screen): screen is LegalPageKind => LEGAL_PAGES.some((p) => p.kind === screen)
 
 function screenFromUrl(): Screen | undefined {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
@@ -500,6 +510,8 @@ function App() {
           />
         )}
 
+        {!loading && isLegalPage(screen) && <LegalPage key={screen} kind={screen} />}
+
         {!loading && screen === 'application-sent' && (
           <ApplicationReceived email={appliedEmail} onHome={() => show('home')} />
         )}
@@ -552,6 +564,19 @@ function App() {
           <ProfileView profile={me} onEdit={() => setView('edit')} onDelete={handleDelete} />
         )}
       </main>
+
+      <footer className="legal-footer small">
+        <span>
+          © {YEAR} {LEGAL.company}
+        </span>
+        <nav aria-label="Legal">
+          {LEGAL_PAGES.map((p) => (
+            <button key={p.kind} type="button" className="link-btn" aria-current={screen === p.kind} onClick={() => show(p.kind)}>
+              {p.title}
+            </button>
+          ))}
+        </nav>
+      </footer>
     </div>
   )
 }

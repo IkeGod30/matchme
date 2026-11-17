@@ -44,11 +44,15 @@ const emailTaken = (email: string, role: Role) =>
 
 /** Seekers sign up freely. Matchmakers can only join through an invitation (below). */
 authRoutes.post('/signup', rateLimit, async (req, res) => {
-  const { email, password } = req.body ?? {}
+  const { email, password, agreeTerms } = req.body ?? {}
   const problem = validCredentials(email, password)
   if (problem) return fail(res, 400, problem)
+  if (agreeTerms !== true) {
+    return fail(res, 400, 'Please confirm you’re 18 or over and agree to the terms and privacy policy.')
+  }
   if (emailTaken(email, 'seeker')) return fail(res, 409, 'An account with that email already exists. Try logging in.')
   const user = await createUser(email, password, 'seeker')
+  run('UPDATE users SET terms_accepted_at = ? WHERE id = ?', Date.now(), user.id)
   startSession(req, res, user)
   res.status(201).json({ user })
 })
@@ -105,12 +109,16 @@ export function findInvite(token: unknown): InviteRow | undefined {
   return invite && !invite.used_at && invite.expires_at > Date.now() ? invite : undefined
 }
 
+const MATCHMAKER_AGREEMENT =
+  'Please agree to the matchmaker code of conduct and keep members’ information confidential.'
+
 authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
-  const { token, email, password, displayName } = req.body ?? {}
+  const { token, email, password, displayName, agreeConfidentiality } = req.body ?? {}
   const invite = findInvite(token)
   if (!invite) return fail(res, 400, 'This invitation has expired or has already been used. Ask your team for a new one.')
   const problem = validCredentials(email, password)
   if (problem) return fail(res, 400, problem)
+  if (agreeConfidentiality !== true) return fail(res, 400, MATCHMAKER_AGREEMENT)
   if (invite.email && invite.email.toLowerCase() !== email.trim().toLowerCase()) {
     return fail(res, 400, `This invitation is for ${invite.email}. Sign up with that address.`)
   }
@@ -126,11 +134,12 @@ authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
     // Claim the invitation atomically so it can only be used once.
     if (Number(run('UPDATE invites SET used_at = ? WHERE id = ? AND used_at IS NULL', now, invite.id).changes) !== 1) return false
     run(
-      'INSERT INTO users (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (id, email, password_hash, role, created_at, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)',
       userId,
       email.trim().toLowerCase(),
       passwordHash,
       'matchmaker',
+      now,
       now,
     )
     // Invited by a teammate, so approved straight away.
@@ -159,9 +168,7 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
   const { email, password, displayName, experience, languages, agreeConfidentiality } = req.body ?? {}
   const problem = validCredentials(email, password)
   if (problem) return fail(res, 400, problem)
-  if (agreeConfidentiality !== true) {
-    return fail(res, 400, 'Please agree to keep members’ information confidential.')
-  }
+  if (agreeConfidentiality !== true) return fail(res, 400, MATCHMAKER_AGREEMENT)
   const name = optionalText(displayName, 'Name', 60)
   if (!name) return fail(res, 400, 'Enter the name seekers will see (up to 60 characters).')
   const about = optionalText(experience, 'Experience', 2000)
@@ -178,11 +185,12 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
   const passwordHash = await hashPassword(password)
   transaction(() => {
     run(
-      'INSERT INTO users (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (id, email, password_hash, role, created_at, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)',
       userId,
       email.trim().toLowerCase(),
       passwordHash,
       'matchmaker',
+      now,
       now,
     )
     run(

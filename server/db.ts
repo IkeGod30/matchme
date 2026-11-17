@@ -183,6 +183,8 @@ if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql) || !usersSql.includes
 
 // A super user can suspend any account: it can't log in, and its sessions are ended.
 addColumn('users', 'suspended_at', 'INTEGER')
+// When the person accepted the terms, privacy policy and (matchmakers) code of conduct at sign-up.
+addColumn('users', 'terms_accepted_at', 'INTEGER')
 // A super user promoted from a matchmaker account points back to it (for display).
 addColumn('users', 'promoted_from', 'TEXT REFERENCES users(id) ON DELETE SET NULL')
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { checkInvite, signUpMatchmaker } from '../../lib/store'
+import { MatchmakerAgreement } from './AuthForm'
 
 interface MatchmakerSignupProps {
   token: string
@@ -14,6 +15,7 @@ export function MatchmakerSignup({ token, onDone, onCancel }: MatchmakerSignupPr
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -30,9 +32,10 @@ export function MatchmakerSignup({ token, onDone, onCancel }: MatchmakerSignupPr
     event.preventDefault()
     setError(null)
     if (password !== confirm) return setError('Passwords don’t match.')
+    if (!agree) return setError('Please agree to the matchmaker code of conduct and keep members’ information confidential.')
     setBusy(true)
     try {
-      await signUpMatchmaker(token, email, password, displayName)
+      await signUpMatchmaker(token, email, password, displayName, agree)
       onDone()
     } catch (e) {
       setError((e as Error).message)
@@ -94,6 +97,7 @@ export function MatchmakerSignup({ token, onDone, onCancel }: MatchmakerSignupPr
         <span>Confirm password</span>
         <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
       </label>
+      <MatchmakerAgreement checked={agree} onChange={setAgree} />
       {error && (
         <p className="errors" role="alert">
           {error}

@@ -24,6 +24,7 @@ import {
   RELIGION_PREFERENCES,
   contactProblem,
 } from '../../data/options'
+import { LegalLink } from '../legal/LegalPages'
 import { SAMPLE_PROFILES } from '../../data/sampleProfiles'
 import { resizeImage } from '../../lib/format'
 import type { PartnerRequest, PhysicalProfile, PreferredContact, Profile } from '../../types'
@@ -361,6 +362,10 @@ export function ProfileForm({ initial, isNew, onSave, onCancel }: ProfileFormPro
                   <option key={r}>{r}</option>
                 ))}
               </select>
+              <span className="hint small">
+                Your religion and ethnicity are only seen by matchmakers and people you’re proposed to — never on
+                Featured. <LegalLink kind="privacy">How we use them</LegalLink>
+              </span>
             </label>
             <label className="field">
               <span>Profession</span>
