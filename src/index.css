@@ -74,3 +74,18 @@ textarea {
   font: inherit;
   color: inherit;
 }
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+/* Touch screens: iOS zooms into any field with text under 16px, so keep them at least that size. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

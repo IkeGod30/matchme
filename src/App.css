@@ -95,6 +95,64 @@
   padding: 24px 16px 64px;
 }
 
+/*
+ * Phones: the header becomes two rows — the brand and account actions on top, the tabs below as
+ * a full-width strip that scrolls sideways if it has to. Section tabs (backoffice, admin) scroll
+ * the same way instead of overflowing.
+ */
+@media (max-width: 720px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 16px;
+  }
+
+  .topbar > .topbar-right {
+    display: contents;
+  }
+
+  .topbar > .topbar-right > * {
+    order: 1;
+  }
+
+  .topbar > .topbar-right > .tabs {
+    order: 2;
+    flex: 1 0 100%;
+  }
+
+  .topbar .account {
+    margin-left: auto;
+  }
+
+  /* The email is in the button's title; the space is needed for the buttons. */
+  .topbar .account > span {
+    display: none;
+  }
+
+  .tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 14px;
+  }
+
+  .topbar .tabs button {
+    flex: 1 0 auto;
+    padding: 8px 9px;
+    font-size: 0.875rem;
+  }
+}
+
 /* ---------- Shared ---------- */
 .card {
   background: var(--surface);
@@ -239,6 +297,29 @@
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
+}
+
+/* Phones: each table row becomes a small card. */
+@media (max-width: 560px) {
+  .legal-table thead {
+    display: none;
+  }
+
+  .legal-table tr {
+    display: block;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-table td {
+    display: block;
+    padding: 2px 0;
+    border: 0;
+  }
+
+  .legal-table td:last-child {
+    color: var(--muted);
+  }
 }
 
 .legal-footer {
@@ -1137,6 +1218,17 @@
   cursor: not-allowed;
 }
 
+@media (max-width: 560px) {
+  .photo-field {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .photo-actions .btn {
+    white-space: nowrap;
+  }
+}
+
 /* The photos being edited on the profile form. */
 .photo-grid {
   display: grid;
@@ -1663,6 +1755,13 @@
   align-items: start;
 }
 
+/* Let long content wrap instead of stretching the columns past the screen. */
+.mm-layout > * {
+  min-width: 0;
+  /* Room for the sticky header when a detail panel is scrolled into view. */
+  scroll-margin-top: 140px;
+}
+
 .mm-queue {
   position: sticky;
   top: 76px;
@@ -1773,6 +1872,22 @@
 
 .sent-list li > div {
   flex: 1;
+  min-width: 0;
+}
+
+/* Phones: the status and buttons wrap under the text instead of squeezing it. */
+@media (max-width: 560px) {
+  .sent-list li {
+    flex-wrap: wrap;
+  }
+
+  .sent-list li > div {
+    flex-basis: calc(100% - 64px);
+  }
+
+  .sent-list li > :not(div):not(.portrait) {
+    margin-left: 60px;
+  }
 }
 
 .sent-list p {
@@ -2358,6 +2473,38 @@
   min-width: 90px;
 }
 
+/* Phones: a member's actions sit under their details, and list statuses under the name. */
+@media (max-width: 560px) {
+  .candidate-top {
+    flex-wrap: wrap;
+  }
+
+  .detail-actions {
+    flex: 1 0 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .queue button {
+    flex-wrap: wrap;
+  }
+
+  .queue-side {
+    flex: 1 0 100%;
+    max-width: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 54px;
+  }
+
+  .queue-side .status-chip {
+    text-align: left;
+  }
+}
+
 .owner {
   display: inline-flex;
   align-items: center;
@@ -2384,9 +2531,15 @@
 
 .assignment-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  min-width: 0;
+}
+
+.assignment select {
+  max-width: 100%;
 }
 
 .assignment select,
@@ -2411,6 +2564,13 @@
   gap: 10px;
   align-items: flex-end;
   margin-top: 12px;
+}
+
+@media (max-width: 560px) {
+  .note-input {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .note-input textarea {

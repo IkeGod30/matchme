@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { GENDERS } from '../../data/attributes'
 import { RELATIONSHIP_STATUSES } from '../../data/options'
 import { timeAgo } from '../../lib/format'
+import { useRevealOnNarrow } from '../../lib/layout'
 import { requestStatus } from '../../lib/requests'
 import { allMembers, findMember, type AppData } from '../../lib/store'
 import type { Profile } from '../../types'
@@ -40,6 +41,7 @@ export function MemberDirectory({ data, onOpenRequest }: MemberDirectoryProps) {
     )
   })
   const selected = selectedId ? findMember(data, selectedId) : undefined
+  const detailRef = useRevealOnNarrow<HTMLElement>(selectedId)
 
   return (
     <div className="stack">
@@ -101,7 +103,7 @@ export function MemberDirectory({ data, onOpenRequest }: MemberDirectoryProps) {
             </ul>
           )}
         </aside>
-        <section>
+        <section ref={detailRef}>
           {selected ? (
             <MemberDetail key={selected.id} member={selected} data={data} onOpenRequest={onOpenRequest} />
           ) : (

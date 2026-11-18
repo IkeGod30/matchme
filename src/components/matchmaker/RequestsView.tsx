@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { timeAgo } from '../../lib/format'
+import { useRevealOnNarrow } from '../../lib/layout'
 import { STATUS_LABELS, requestStatus, type RequestStatus } from '../../lib/requests'
 import { findMember, type AppData, type MatchmakerData } from '../../lib/store'
 import { MatchmakerAvatar } from '../shared/MatchmakerCard'
@@ -43,6 +44,7 @@ export function RequestsView({ data, matchmaker, scope, onScope, selectedId, onS
   const visible = scoped.filter((r) => matches(filter, r.status))
   const selected = rows.find((r) => r.request.id === selectedId)
   const teammate = (id: string | undefined) => matchmaker.team.find((m) => m.id === id)
+  const detailRef = useRevealOnNarrow<HTMLElement>(selectedId)
 
   return (
     <div className="mm-layout">
@@ -104,7 +106,7 @@ export function RequestsView({ data, matchmaker, scope, onScope, selectedId, onS
         )}
       </aside>
 
-      <section>
+      <section ref={detailRef}>
         {selected ? (
           <RequestDetail
             key={selected.request.id}
