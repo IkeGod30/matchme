@@ -19,7 +19,7 @@ function LegalLayout({ title, intro, children }: { title: string; intro: string;
       {LEGAL.draft && (
         <p className="legal-draft small" role="note">
           <strong>Draft.</strong> Details in [brackets] still need filling in, and this notice should be reviewed by
-          a lawyer before MatchMe launches.
+          a lawyer before MatchMeHub launches.
         </p>
       )}
       <h1>{title}</h1>
@@ -41,11 +41,11 @@ function PrivacyPolicy() {
   return (
     <LegalLayout
       title="Privacy policy"
-      intro="MatchMe is a matchmaking service: real matchmakers read what you tell us and introduce you to people who fit. That only works if you trust us with personal details, so this policy explains plainly what we collect, who sees it, how long we keep it and the choices you have."
+      intro="MatchMeHub is a matchmaking service: real matchmakers read what you tell us and introduce you to people who fit. That only works if you trust us with personal details, so this policy explains plainly what we collect, who sees it, how long we keep it and the choices you have."
     >
       <h2>1. Who we are</h2>
       <p>
-        MatchMe is run by {LEGAL.company} ({LEGAL.registration}), {LEGAL.address} (“MatchMe”, “we”, “us”). We are
+        MatchMeHub is run by {LEGAL.company} ({LEGAL.registration}), {LEGAL.address} (“MatchMeHub”, “we”, “us”). We are
         responsible for (the “controller” of) the personal data described here. Questions or requests:{' '}
         <Email to={LEGAL.privacyEmail} />. Data protection officer: {LEGAL.dpo}.
       </p>
@@ -113,7 +113,7 @@ function PrivacyPolicy() {
           public Featured page if you turn that on.
         </li>
         <li>
-          <strong>For our legitimate interests</strong>, balanced against yours: keeping MatchMe secure, preventing
+          <strong>For our legitimate interests</strong>, balanced against yours: keeping MatchMeHub secure, preventing
           fraud and abuse, enforcing our <LegalLink kind="terms">terms</LegalLink> and improving how matchmakers
           work.
         </li>
@@ -150,7 +150,7 @@ function PrivacyPolicy() {
           other photos. You can turn it off at any time.
         </li>
         <li>
-          <strong>MatchMe administrators</strong> can view accounts to support members and keep the service safe.
+          <strong>MatchMeHub administrators</strong> can view accounts to support members and keep the service safe.
         </li>
         <li>
           <strong>Service providers</strong> who process data for us under contract and only on our instructions:
@@ -215,7 +215,7 @@ function PrivacyPolicy() {
 
       <h2>10. Age</h2>
       <p>
-        MatchMe is only for adults aged 18 or over. We don’t knowingly collect data from anyone younger and delete it
+        MatchMeHub is only for adults aged 18 or over. We don’t knowingly collect data from anyone younger and delete it
         if we find out.
       </p>
 
@@ -232,16 +232,16 @@ function TermsOfUse() {
   return (
     <LegalLayout
       title="Terms of use"
-      intro={`These terms are the agreement between you and ${LEGAL.company} when you use MatchMe. Please read them: by creating an account you accept them. Our privacy policy explains how we handle your personal data.`}
+      intro={`These terms are the agreement between you and ${LEGAL.company} when you use MatchMeHub. Please read them: by creating an account you accept them. Our privacy policy explains how we handle your personal data.`}
     >
-      <h2>1. Who can use MatchMe</h2>
-      <p>You may use MatchMe only if you:</p>
+      <h2>1. Who can use MatchMeHub</h2>
+      <p>You may use MatchMeHub only if you:</p>
       <ul>
         <li>are at least 18 years old;</li>
         <li>are legally able to enter into a relationship and this agreement;</li>
         <li>are honest about your relationship status;</li>
         <li>haven’t been convicted of a violent or sexual offence; and</li>
-        <li>haven’t previously been removed from MatchMe.</li>
+        <li>haven’t previously been removed from MatchMeHub.</li>
       </ul>
 
       <h2>2. Your account</h2>
@@ -250,9 +250,9 @@ function TermsOfUse() {
         must be true and about you, and your photos must be of you and recent. One person, one account.
       </p>
 
-      <h2>3. How MatchMe works</h2>
+      <h2>3. How MatchMeHub works</h2>
       <p>
-        You tell us about yourself and who you’re looking for. A MatchMe matchmaker reviews your request and proposes
+        You tell us about yourself and who you’re looking for. A MatchMeHub matchmaker reviews your request and proposes
         people for you to accept or decline. If you accept someone, we ask whether they’re interested too. You can
         also ask to be matched with a member from the Featured page. Matchmakers use their judgement: we can’t
         promise a particular number of proposals, a match, or that any relationship will work out.
@@ -272,16 +272,16 @@ function TermsOfUse() {
       <ul>
         <li>harass, threaten, abuse, stalk or discriminate against anyone;</li>
         <li>ask anyone for money, gifts or financial information, or promote a business;</li>
-        <li>share anyone else’s profile, photos or contact details outside MatchMe without their permission;</li>
+        <li>share anyone else’s profile, photos or contact details outside MatchMeHub without their permission;</li>
         <li>pretend to be someone else or create fake accounts;</li>
         <li>post content that is sexually explicit, hateful, illegal, or that you don’t have the right to share;</li>
-        <li>try to get around how MatchMe works, for example by scraping profiles or breaking its security.</li>
+        <li>try to get around how MatchMeHub works, for example by scraping profiles or breaking its security.</li>
       </ul>
 
       <h2>6. Your content</h2>
       <p>
         You own what you post. You give us permission to store, display and share it in the ways the{' '}
-        <LegalLink kind="privacy">privacy policy</LegalLink> describes, only to run MatchMe. That permission ends when
+        <LegalLink kind="privacy">privacy policy</LegalLink> describes, only to run MatchMeHub. That permission ends when
         you delete it or your account, apart from backups that are overwritten on schedule.
       </p>
 
@@ -308,15 +308,15 @@ function TermsOfUse() {
 
       <h2>10. Our responsibility to you</h2>
       <p>
-        We provide MatchMe with reasonable care and skill. We aren’t responsible for how other members behave, on or
-        off MatchMe, or for losses we couldn’t reasonably foresee. Where the law allows, our total liability to you is
+        We provide MatchMeHub with reasonable care and skill. We aren’t responsible for how other members behave, on or
+        off MatchMeHub, or for losses we couldn’t reasonably foresee. Where the law allows, our total liability to you is
         limited to the fees you paid us in the 12 months before the claim. Nothing here limits liability for death or
         personal injury caused by negligence, for fraud, or anything else the law doesn’t allow us to limit.
       </p>
 
       <h2>11. Changes to these terms</h2>
       <p>
-        We may update these terms to reflect changes to MatchMe or the law. We’ll give you notice of important changes;
+        We may update these terms to reflect changes to MatchMeHub or the law. We’ll give you notice of important changes;
         if you don’t agree you can delete your account before they take effect.
       </p>
 
@@ -334,7 +334,7 @@ function CookieNotice() {
   return (
     <LegalLayout
       title="Cookie notice"
-      intro="MatchMe uses only what it needs to keep you signed in and to save your progress. We don’t use advertising, analytics or tracking cookies, and we don’t let other companies place cookies on our site, so there’s nothing to accept or reject."
+      intro="MatchMeHub uses only what it needs to keep you signed in and to save your progress. We don’t use advertising, analytics or tracking cookies, and we don’t let other companies place cookies on our site, so there’s nothing to accept or reject."
     >
       <h2>Cookies</h2>
       <div className="legal-table-wrap">
@@ -372,7 +372,7 @@ function CookieNotice() {
         </table>
       </div>
       <p>
-        These are “strictly necessary” cookies: MatchMe can’t work without them, so the law doesn’t require us to ask
+        These are “strictly necessary” cookies: MatchMeHub can’t work without them, so the law doesn’t require us to ask
         first. They can’t be read by scripts on the page and contain only a random code, not your details.
       </p>
 
@@ -389,14 +389,14 @@ function CookieNotice() {
           <tbody>
             <tr>
               <td>
-                <code>matchme.profileDraft</code>
+                <code>matchmehub.profileDraft</code>
               </td>
               <td>Saves the profile you’re filling in, so you don’t lose it if you close the page.</td>
               <td>Until you save your profile or log out</td>
             </tr>
             <tr>
               <td>
-                <code>matchme.featuredPick</code>
+                <code>matchmehub.featuredPick</code>
               </td>
               <td>Remembers the Featured member you asked to meet while you create your account.</td>
               <td>Until your request is sent or you log out</td>
@@ -422,7 +422,7 @@ function SafetyAndConduct() {
   return (
     <LegalLayout
       title="Safety & conduct"
-      intro="Our matchmakers introduce people thoughtfully, but you’re still meeting someone new. These tips help you stay safe, and the code of conduct below is what every MatchMe matchmaker agrees to."
+      intro="Our matchmakers introduce people thoughtfully, but you’re still meeting someone new. These tips help you stay safe, and the code of conduct below is what every MatchMeHub matchmaker agrees to."
     >
       <h2>Before you meet</h2>
       <ul>
@@ -430,7 +430,7 @@ function SafetyAndConduct() {
         <li>Don’t share your home address, workplace or financial details early on.</li>
         <li>
           <strong>Never send money</strong>, gift cards or bank details to someone you haven’t met, whatever the
-          story. MatchMe staff will never ask you to pay outside our site.
+          story. MatchMeHub staff will never ask you to pay outside our site.
         </li>
         <li>If something feels wrong, trust that feeling. You can stop at any time.</li>
       </ul>
@@ -451,29 +451,29 @@ function SafetyAndConduct() {
       </p>
 
       <h2 id="matchmaker-code">Matchmaker code of conduct</h2>
-      <p>Everyone who matchmakes on MatchMe agrees to:</p>
+      <p>Everyone who matchmakes on MatchMeHub agrees to:</p>
       <ol>
         <li>
           <strong>Keep members’ information confidential.</strong> Use what members share only to find matches for
-          them. Don’t download, screenshot, copy or discuss it outside MatchMe.
+          them. Don’t download, screenshot, copy or discuss it outside MatchMeHub.
         </li>
         <li>
           <strong>Share a profile only with people you propose.</strong> Share contact details only after a match has
-          been confirmed through MatchMe.
+          been confirmed through MatchMeHub.
         </li>
         <li>
           <strong>Never contact members for personal reasons</strong>, and never date or pursue a member you look
           after.
         </li>
         <li>
-          <strong>Never ask members for money</strong>, gifts or payment outside MatchMe.
+          <strong>Never ask members for money</strong>, gifts or payment outside MatchMeHub.
         </li>
         <li>
           <strong>Treat every member with respect and without discrimination</strong>, and propose people honestly,
           based on what the member asked for.
         </li>
         <li>
-          <strong>Report concerns.</strong> Tell the MatchMe team straight away about any safety worry, suspicious
+          <strong>Report concerns.</strong> Tell the MatchMeHub team straight away about any safety worry, suspicious
           account or possible data leak.
         </li>
         <li>

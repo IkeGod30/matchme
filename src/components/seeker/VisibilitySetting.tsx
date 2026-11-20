@@ -16,7 +16,7 @@ export function VisibilitySetting({ isPublic, onChange }: VisibilitySettingProps
     if (
       next &&
       !confirm(
-        `Feature your profile publicly?\n\nAnyone visiting MatchMe will see: ${PUBLIC_FIELDS.join(', ')}.\n\nYour body details, preferences, race and nationality stay private. You can switch back to private at any time.`,
+        `Feature your profile publicly?\n\nAnyone visiting MatchMeHub will see: ${PUBLIC_FIELDS.join(', ')}.\n\nYour body details, preferences, race and nationality stay private. You can switch back to private at any time.`,
       )
     ) {
       return

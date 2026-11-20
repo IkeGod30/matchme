@@ -7,8 +7,8 @@
 //                                    (keeps real accounts, photos, requests and visibility)
 //
 // Matchmaker login: MATCHMAKER_EMAIL / MATCHMAKER_PASSWORD env vars, otherwise
-// matchmaker@matchme.local with a generated password that is printed once.
-// Super user (/admin): ADMIN_EMAIL / ADMIN_PASSWORD the same way (admin@matchme.local).
+// matchmaker@matchmehub.local with a generated password that is printed once.
+// Super user (/admin): ADMIN_EMAIL / ADMIN_PASSWORD the same way (admin@matchmehub.local).
 
 import { randomBytes } from 'node:crypto'
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
@@ -129,7 +129,7 @@ transaction(() => {
 })
 console.log(`Added ${SAMPLE_PROFILES.length} sample members and 3 demo requests.`)
 
-const email = process.env.MATCHMAKER_EMAIL ?? 'matchmaker@matchme.local'
+const email = process.env.MATCHMAKER_EMAIL ?? 'matchmaker@matchmehub.local'
 if (get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
   console.log(`Matchmaker account ${email} already exists.`)
 } else {

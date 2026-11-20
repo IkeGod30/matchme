@@ -7,7 +7,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Calls the MatchMe API (proxied to the server in development). Throws ApiError on failure. */
+/** Calls the MatchMeHub API (proxied to the server in development). Throws ApiError on failure. */
 export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
@@ -18,15 +18,15 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError('Can’t reach the MatchMe server. Is it running (npm run dev)?', 0)
+    throw new ApiError('Can’t reach the MatchMeHub server. Is it running (npm run dev)?', 0)
   }
   const isJson = res.headers.get('Content-Type')?.includes('application/json')
   const data = (isJson ? await res.json().catch(() => null) : null) as (T & { error?: string }) | null
   if (!isJson || [502, 503, 504].includes(res.status)) {
-    // An HTML page or gateway error means the request never reached the MatchMe API.
+    // An HTML page or gateway error means the request never reached the MatchMeHub API.
     throw new ApiError(
       data?.error ??
-        'Can’t reach the MatchMe API server, so nothing was saved. Start everything with `npm run dev` (it runs both the website and the API), then try again.',
+        'Can’t reach the MatchMeHub API server, so nothing was saved. Start everything with `npm run dev` (it runs both the website and the API), then try again.',
       res.status || 503,
     )
   }

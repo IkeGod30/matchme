@@ -57,7 +57,7 @@ export function MatchmakerSignup({ token, onDone, onCancel }: MatchmakerSignupPr
         </p>
         <div className="form-actions">
           <button type="button" className="btn primary" onClick={onCancel}>
-            Go to MatchMe
+            Go to MatchMeHub
           </button>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function MatchmakerSignup({ token, onDone, onCancel }: MatchmakerSignupPr
   return (
     <form className="card auth-form" onSubmit={submit}>
       <span className="eyebrow">Matchmaker invitation</span>
-      <h2>Join the MatchMe matchmaking team</h2>
+      <h2>Join the MatchMeHub matchmaking team</h2>
       <p className="muted small">
         Create your matchmaker account. You’ll be able to take on seekers’ requests, propose matches and see every
         member.

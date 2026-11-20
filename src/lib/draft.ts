@@ -3,7 +3,22 @@ import type { Profile } from '../types'
 // Keeps an unsaved new-profile draft in this browser, so a reload or a failed save
 // doesn't wipe everything the seeker has typed. Cleared once the profile is saved.
 
-const DRAFT_KEY = 'matchme.profileDraft'
+const DRAFT_KEY = 'matchmehub.profileDraft'
+const PICK_KEY = 'matchmehub.featuredPick'
+
+// Carry over anything saved under the keys used before the rename to MatchMeHub.
+try {
+  for (const key of [DRAFT_KEY, PICK_KEY]) {
+    const old = key.replace('matchmehub.', 'matchme.')
+    const value = localStorage.getItem(old)
+    if (value !== null) {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, value)
+      localStorage.removeItem(old)
+    }
+  }
+} catch {
+  // Storage blocked: nothing to carry over.
+}
 
 export function loadProfileDraft(): Profile | null {
   try {
@@ -39,8 +54,6 @@ export function clearProfileDraft(): void {
 
 // A featured member picked before signing up or creating a profile; requested once the
 // seeker has a profile.
-
-const PICK_KEY = 'matchme.featuredPick'
 
 export function loadFeaturedPick(): string | null {
   try {

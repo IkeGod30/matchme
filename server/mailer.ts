@@ -8,7 +8,7 @@ import { DATA_DIR } from './db-paths.ts'
 // printed to the console instead, so flows like password reset can still be tested.
 
 const OUTBOX = path.join(DATA_DIR, 'outbox')
-const FROM = process.env.MAIL_FROM ?? 'MatchMe <no-reply@matchme.local>'
+const FROM = process.env.MAIL_FROM ?? 'MatchMeHub <no-reply@matchmehub.local>'
 
 const transport = process.env.SMTP_HOST
   ? nodemailer.createTransport({

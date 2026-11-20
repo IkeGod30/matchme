@@ -199,7 +199,7 @@ export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatc
           <span className="eyebrow">Personal matchmaking</span>
           <h1>Describe the person you want to meet. A matchmaker finds them.</h1>
           <p className="lead">
-            MatchMe isn’t another swipe app. You tell us exactly who you’re looking for — down to the features you’re
+            MatchMeHub isn’t another swipe app. You tell us exactly who you’re looking for — down to the features you’re
             drawn to — and a real matchmaker hand-picks people for you to accept or decline.
           </p>
           <div className="hero-actions">
@@ -263,14 +263,14 @@ export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatc
           <h2>Pay only when it’s a mutual match.</h2>
           <p className="muted">
             Many matchmakers ask for large fees upfront — and some then stop responding, or introduce you to someone
-            who isn’t what you asked for. On MatchMe you pay nothing until you’re matched with someone who has{' '}
+            who isn’t what you asked for. On MatchMeHub you pay nothing until you’re matched with someone who has{' '}
             <strong>also</strong> said they like you and are interested in meeting you.
           </p>
         </div>
-        <div className="compare card" role="table" aria-label="Upfront-fee matchmakers compared with MatchMe">
+        <div className="compare card" role="table" aria-label="Upfront-fee matchmakers compared with MatchMeHub">
           <div className="compare-row compare-head" role="row">
             <span role="columnheader">Typical upfront-fee matchmaker</span>
-            <span role="columnheader">MatchMe</span>
+            <span role="columnheader">MatchMeHub</span>
           </div>
           {FEE_COMPARISON.map((row) => (
             <div key={row.us} className="compare-row" role="row">
@@ -406,7 +406,7 @@ export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatc
 
       <footer className="landing-footer">
         <span>
-          <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
+          <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub
         </span>
         <span className="footer-links">
           <button type="button" className="link-btn" onClick={onFeatured}>
@@ -434,7 +434,7 @@ const MM_STEPS = [
   { title: 'Apply', body: 'Tell us about yourself and your matchmaking experience. It takes a few minutes and costs nothing.' },
   {
     title: 'Get approved',
-    body: 'A matchmaker on the MatchMe team reviews your application. Invited by a teammate? You’re approved straight away.',
+    body: 'A matchmaker on the MatchMeHub team reviews your application. Invited by a teammate? You’re approved straight away.',
   },
   {
     title: 'Take on requests',
@@ -488,7 +488,7 @@ export function MatchmakerLanding({
           <span className="eyebrow">For matchmakers</span>
           <h1>Bring people together — with the tools to do it well.</h1>
           <p className="lead">
-            MatchMe gives matchmakers a private workspace: detailed, picture-based requests from seekers, a ranked
+            MatchMeHub gives matchmakers a private workspace: detailed, picture-based requests from seekers, a ranked
             shortlist for every request, and one place to propose matches and follow every answer.
           </p>
           <div className="hero-actions">
@@ -569,7 +569,7 @@ export function MatchmakerLanding({
           <p className="muted">
             Matchmakers see full profiles — photos, preferences and personal details that members don’t share
             publicly. Every matchmaker agrees to keep this information confidential, to share a member’s profile only
-            with the people they propose, and never to contact members outside MatchMe for personal reasons.
+            with the people they propose, and never to contact members outside MatchMeHub for personal reasons.
           </p>
         </article>
       </section>
@@ -594,7 +594,7 @@ export function MatchmakerLanding({
 
       <footer className="landing-footer">
         <span>
-          <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
+          <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub
         </span>
         <span className="footer-links">
           <button type="button" className="link-btn" onClick={onFeatured}>

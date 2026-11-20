@@ -1,4 +1,4 @@
-# MatchMe
+# MatchMeHub
 
 Personal matchmaking: seekers describe the partner they want (including picture-based
 physical preferences), a matchmaker proposes hand-picked people, and seekers pay only
@@ -78,7 +78,7 @@ npm run seed -- --reset
 ```
 
 For a database that already has data, `npm run create-admin` adds a super user (same
-`ADMIN_EMAIL` / `ADMIN_PASSWORD` variables, otherwise `admin@matchme.local` with a generated
+`ADMIN_EMAIL` / `ADMIN_PASSWORD` variables, otherwise `admin@matchmehub.local` with a generated
 password printed once). More super users can then be promoted from `/admin`.
 
 `--reset` wipes the database and uploaded photos (`server/data/`, git-ignored) first.
@@ -96,7 +96,7 @@ To send real email, set these before starting the server:
 | `SMTP_HOST` | `smtp.sendgrid.net`, `smtp.gmail.com`, `smtp-relay.brevo.com` |
 | `SMTP_PORT` | `587` (or `465` with `SMTP_SECURE=true`) |
 | `SMTP_USER` / `SMTP_PASS` | Your provider's SMTP username and password / API key |
-| `MAIL_FROM` | `MatchMe <hello@yourdomain.com>` |
+| `MAIL_FROM` | `MatchMeHub <hello@yourdomain.com>` |
 | `APP_URL` | The site's public address, used in links (default `http://localhost:5175`) |
 
 ## Scripts

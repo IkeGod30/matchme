@@ -16,7 +16,7 @@ export const LEGAL_PAGES: { kind: LegalPageKind; title: string }[] = [
 export const LEGAL = {
   /** Shows a "draft" banner on every legal page until the details below are filled in and reviewed. */
   draft: true,
-  /** The legal entity that runs MatchMe and is responsible for members' data. */
+  /** The legal entity that runs MatchMeHub and is responsible for members' data. */
   company: '[COMPANY LEGAL NAME]',
   /** Registered address, including country. */
   address: '[REGISTERED ADDRESS]',
@@ -29,7 +29,7 @@ export const LEGAL = {
   dpo: '[DATA PROTECTION OFFICER NAME / CONTACT, or remove]',
   /** Where the servers and backups are, e.g. "Amazon Web Services, Frankfurt (EU)". */
   hosting: '[HOSTING PROVIDER AND COUNTRY]',
-  /** Who sends MatchMe's emails (the SMTP service in server/mailer.ts). */
+  /** Who sends MatchMeHub's emails (the SMTP service in server/mailer.ts). */
   emailProvider: '[EMAIL PROVIDER, e.g. Brevo or SendGrid]',
   /** Who takes card payments once real payments replace the placeholder. */
   paymentProvider: '[PAYMENT PROVIDER, e.g. Paystack, Flutterwave or Stripe]',

@@ -12,7 +12,7 @@ import { matchmakerRoutes } from './routes/matchmaker.ts'
 import { publicRoutes } from './routes/public.ts'
 import { seekerRoutes } from './routes/seeker.ts'
 
-// MatchMe API. Routes are grouped by who uses them:
+// MatchMeHub API. Routes are grouped by who uses them:
 //   /api/auth/*        sign-up, login, password reset, matchmaker invitations
 //   /api/*             public pages and access-checked photos
 //   /api/seeker/*      seekers (role: seeker)
@@ -51,7 +51,7 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 })
 
 const server = app.listen(PORT, () => {
-  console.log(`MatchMe API listening on http://localhost:${PORT}`)
+  console.log(`MatchMeHub API listening on http://localhost:${PORT}`)
   if (!isEmailConfigured()) {
     console.log('Email: SMTP not configured — emails are printed here and saved to server/data/outbox/.')
   }
@@ -63,7 +63,7 @@ const server = app.listen(PORT, () => {
 server.on('error', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EADDRINUSE') {
     console.error(
-      `\nPort ${PORT} is already in use, so the MatchMe API couldn't start.\n` +
+      `\nPort ${PORT} is already in use, so the MatchMeHub API couldn't start.\n` +
         'Another copy of the API is probably still running — close that terminal (or stop it with Ctrl+C) and run `npm run dev` again.\n',
     )
     process.exit(1)

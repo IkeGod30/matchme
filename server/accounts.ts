@@ -32,11 +32,11 @@ export async function createSuperUser(email: string, password?: string, promoted
 }
 
 /**
- * Creates a super user from ADMIN_EMAIL / ADMIN_PASSWORD (or admin@matchme.local and a generated
+ * Creates a super user from ADMIN_EMAIL / ADMIN_PASSWORD (or admin@matchmehub.local and a generated
  * password) and prints the log-in once. Used by `npm run seed` and `npm run create-admin`.
  */
 export async function createSuperUserFromEnv(): Promise<void> {
-  const email = (process.env.ADMIN_EMAIL ?? 'admin@matchme.local').trim().toLowerCase()
+  const email = (process.env.ADMIN_EMAIL ?? 'admin@matchmehub.local').trim().toLowerCase()
   if (get(`SELECT 1 FROM users WHERE role = 'admin' AND email = ?`, email)) {
     console.log(`Super user ${email} already exists.`)
     return

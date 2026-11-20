@@ -38,13 +38,13 @@ const INTROS: Record<FormAudience, Record<AuthFormProps['mode'], string>> = {
   },
   matchmaker: {
     login:
-      'For the MatchMe matchmaking team only — a separate account from any seeker account. Logging in here signs this browser out of the seeker site.',
+      'For the MatchMeHub matchmaking team only — a separate account from any seeker account. Logging in here signs this browser out of the seeker site.',
     signup:
       'Tell us about yourself. Our team reviews every application and emails you the decision — once approved, you log in at /matchmaker. Invited by a teammate? Use the link in your email instead.',
   },
   admin: {
     login:
-      'For MatchMe super users only — a separate account from any seeker or matchmaker account. Logging in here signs this browser out of the other areas.',
+      'For MatchMeHub super users only — a separate account from any seeker or matchmaker account. Logging in here signs this browser out of the other areas.',
     signup: '',
   },
 }
@@ -56,7 +56,7 @@ export function MatchmakerAgreement({ checked, onChange }: { checked: boolean; o
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>
         I’ll keep members’ information confidential, share a member’s profile only with people I propose them to, and
-        never contact members outside MatchMe for personal reasons. I agree to the{' '}
+        never contact members outside MatchMeHub for personal reasons. I agree to the{' '}
         <LegalLink kind="safety">matchmaker code of conduct</LegalLink>, the <LegalLink kind="terms">terms of use</LegalLink>{' '}
         and the <LegalLink kind="privacy">privacy policy</LegalLink>.
       </span>
@@ -184,7 +184,7 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
             <span>
               I’m 18 or over and I agree to the <LegalLink kind="terms">terms of use</LegalLink> and{' '}
-              <LegalLink kind="privacy">privacy policy</LegalLink>. I consent to MatchMe using the sensitive details I
+              <LegalLink kind="privacy">privacy policy</LegalLink>. I consent to MatchMeHub using the sensitive details I
               choose to share — such as my ethnicity, religion, photos and the genders I’m interested in — to find
               matches for me.
             </span>
@@ -206,7 +206,7 @@ export function AuthForm({ mode, audience, onSwitch, onDone, onCancel, onForgot,
         </div>
         {onSwitch && (
           <p className="small auth-switch">
-            {signup ? 'Already have an account?' : audience === 'seeker' ? 'New to MatchMe?' : 'Want to join the team?'}{' '}
+            {signup ? 'Already have an account?' : audience === 'seeker' ? 'New to MatchMeHub?' : 'Want to join the team?'}{' '}
             <button type="button" className="link-btn" onClick={onSwitch}>
               {signup ? 'Log in' : audience === 'seeker' ? 'Create an account' : 'Apply to be a matchmaker'}
             </button>

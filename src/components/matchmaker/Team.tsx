@@ -42,7 +42,7 @@ export function Team({ data, matchmaker }: { data: AppData; matchmaker: Matchmak
       <div>
         <h2>Team</h2>
         <p className="muted">
-          Matchmakers join by applying (a MatchMe super user reviews each application) or by invitation (approved
+          Matchmakers join by applying (a MatchMeHub super user reviews each application) or by invitation (approved
           straight away). Everyone on the team can see every request and member.
         </p>
       </div>

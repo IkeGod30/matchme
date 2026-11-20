@@ -28,7 +28,7 @@ function validCredentials(email: unknown, password: unknown): string | null {
   return null
 }
 
-const SUSPENDED = 'This account has been suspended. Please contact MatchMe support.'
+const SUSPENDED = 'This account has been suspended. Please contact MatchMeHub support.'
 
 /** Each realm's area of the site, used in links in emails. */
 export const REALM_PATHS: Record<Role, string> = { seeker: '/', matchmaker: '/matchmaker', admin: '/admin' }

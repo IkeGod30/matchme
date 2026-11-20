@@ -173,7 +173,7 @@ matchmakerRoutes.post('/invites', (req, res) => {
   )
   const link = `${APP_URL}/#invite=${token}`
   if (email) {
-    const inviter = matchmakerRow(me.id)?.display_name ?? 'A MatchMe matchmaker'
+    const inviter = matchmakerRow(me.id)?.display_name ?? 'A MatchMeHub matchmaker'
     sendEmail(matchmakerInviteEmail(email, link, inviter)).catch((error) => console.error('Could not send invite email:', error))
   }
   // The link is shown once so it can also be shared directly; only its hash is stored.

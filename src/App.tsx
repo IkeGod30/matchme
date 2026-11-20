@@ -309,8 +309,8 @@ function App() {
     return (
       <div className="app">
         <header className="topbar backoffice">
-          <button type="button" className="brand" onClick={() => show('admin')} aria-label="MatchMe admin">
-            <span className="brand-mark" aria-hidden="true">♥</span> MatchMe <span className="backoffice-tag">Admin</span>
+          <button type="button" className="brand" onClick={() => show('admin')} aria-label="MatchMeHub admin">
+            <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub <span className="backoffice-tag">Admin</span>
           </button>
           <div className="topbar-right">
             {admin && (
@@ -350,8 +350,8 @@ function App() {
     return (
       <div className="app">
         <header className="topbar backoffice">
-          <button type="button" className="brand" onClick={() => show('staff')} aria-label="MatchMe backoffice">
-            <span className="brand-mark" aria-hidden="true">♥</span> MatchMe <span className="backoffice-tag">Backoffice</span>
+          <button type="button" className="brand" onClick={() => show('staff')} aria-label="MatchMeHub backoffice">
+            <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub <span className="backoffice-tag">Backoffice</span>
           </button>
           <div className="topbar-right">
             {staff && !isPendingStaff && newRequests > 0 && (
@@ -417,8 +417,8 @@ function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <button type="button" className="brand" onClick={() => show('home')} aria-label="MatchMe home">
-          <span className="brand-mark" aria-hidden="true">♥</span> MatchMe
+        <button type="button" className="brand" onClick={() => show('home')} aria-label="MatchMeHub home">
+          <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub
         </button>
         <div className="topbar-right">
           <nav className="tabs">
