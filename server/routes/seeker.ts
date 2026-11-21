@@ -19,7 +19,7 @@ import {
 } from '../data.ts'
 import { run, transaction } from '../db.ts'
 import { fail, optionalText, recordInterest } from '../http.ts'
-import { BadRequest, deletePhoto, savePhoto } from '../photos.ts'
+import { BadRequest, deleteUnusedPhotos, savePhoto } from '../photos.ts'
 import { deleteAccount } from '../accounts.ts'
 import { validateProfile } from '../validate.ts'
 
@@ -54,12 +54,16 @@ const MAX_PHOTOS = 6
 
 /**
  * Works out a member's photos from the list the form sent, in order: a URL keeps one of their
- * current photos, a data URL is a new upload. Returns the new list and the files no longer used.
+ * current photos, a data URL is a new upload. Returns the new list, the files no longer used and
+ * the files just uploaded (to remove again if saving fails).
  */
-function syncPhotos(profileId: string, sent: unknown): { kept: GalleryRow[]; removed: string[] } {
+async function syncPhotos(
+  profileId: string,
+  sent: unknown,
+): Promise<{ kept: GalleryRow[]; removed: string[]; uploaded: string[] }> {
   if (!Array.isArray(sent)) throw new BadRequest('Photos are invalid.')
   if (sent.length > MAX_PHOTOS) throw new BadRequest(`You can add up to ${MAX_PHOTOS} photos.`)
-  const current = new Map(galleryRows(profileId).map((g) => [galleryUrl(profileId, g.id), g]))
+  const current = new Map((await galleryRows(profileId)).map((g) => [galleryUrl(profileId, g.id), g]))
   const kept: GalleryRow[] = []
   const uploaded: string[] = []
   try {
@@ -69,7 +73,7 @@ function syncPhotos(profileId: string, sent: unknown): { kept: GalleryRow[]; rem
       if (existing) {
         if (!kept.includes(existing)) kept.push(existing)
       } else if (item.startsWith('data:')) {
-        const file = savePhoto(item)
+        const file = await savePhoto(item)
         uploaded.push(file)
         kept.push({ id: randomUUID(), file })
       } else {
@@ -78,24 +82,24 @@ function syncPhotos(profileId: string, sent: unknown): { kept: GalleryRow[]; rem
     }
   } catch (error) {
     // Don't leave half an upload behind.
-    for (const file of uploaded) deletePhoto(file)
+    await deleteUnusedPhotos(uploaded)
     throw error
   }
   const keptFiles = new Set(kept.map((g) => g.file))
-  return { kept, removed: [...current.values()].map((g) => g.file).filter((f) => !keptFiles.has(f)) }
+  return { kept, uploaded, removed: [...current.values()].map((g) => g.file).filter((f) => !keptFiles.has(f)) }
 }
 
 /** The signed-in seeker's profile id, or a 409 telling them to create one first. */
-function myProfileId(res: Response): string | undefined {
-  const row = profileRowForUser(currentUser(res, 'seeker')!.id)
+async function myProfileId(res: Response): Promise<string | undefined> {
+  const row = await profileRowForUser(currentUser(res, 'seeker')!.id)
   if (!row) fail(res, 409, 'Create your profile first.')
   return row?.id
 }
 
-function myRequest(res: Response, requestId: string): MatchRequest | undefined {
-  const mine = myProfileId(res)
+async function myRequest(res: Response, requestId: string): Promise<MatchRequest | undefined> {
+  const mine = await myProfileId(res)
   if (!mine) return undefined
-  const request = requestById(requestId)
+  const request = await requestById(requestId)
   if (!request || request.seekerId !== mine) {
     fail(res, 404, 'Request not found.')
     return undefined
@@ -103,69 +107,85 @@ function myRequest(res: Response, requestId: string): MatchRequest | undefined {
   return request
 }
 
-seekerRoutes.get('/state', (_req, res) => {
-  const row = profileRowForUser(currentUser(res, 'seeker')!.id)
+seekerRoutes.get('/state', async (_req, res) => {
+  const row = await profileRowForUser(currentUser(res, 'seeker')!.id)
   if (!row) return res.json({ profile: null, requests: [], incoming: [], members: [] })
-  const requests = withMatchmakers(requestsForSeeker(row.id))
-  const incoming = incomingForCandidate(row.id)
+  const requests = await withMatchmakers(await requestsForSeeker(row.id))
+  const incoming = await incomingForCandidate(row.id)
   const memberIds = [...requests.flatMap((r) => r.proposals.map((p) => p.candidateId)), ...incoming.map((r) => r.seekerId)]
-  res.json({ profile: toProfile(row), requests, incoming, members: profilesById(memberIds).map(asMember) })
+  res.json({
+    profile: await toProfile(row),
+    requests,
+    incoming,
+    members: (await profilesById(memberIds)).map(asMember),
+  })
 })
 
-seekerRoutes.put('/profile', (req, res) => {
+seekerRoutes.put('/profile', async (req, res) => {
   const user = currentUser(res, 'seeker')!
   const body = req.body ?? {}
   const clean = validateProfile(body.profile)
-  const existing = profileRowForUser(user.id)
+  const existing = await profileRowForUser(user.id)
   const id = existing?.id ?? randomUUID()
 
   // Leaving photos out keeps them as they are.
-  const photos = body.photos === undefined ? undefined : syncPhotos(id, body.photos)
+  const photos = body.photos === undefined ? undefined : await syncPhotos(id, body.photos)
   const photoFile = photos ? (photos.kept[0]?.file ?? null) : (existing?.photo_file ?? null)
   const now = Date.now()
 
-  transaction(() => {
-    run(
-      `INSERT INTO profiles (id, user_id, data, photo_file, is_demo, public_listing, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET data = excluded.data, photo_file = excluded.photo_file,
-         public_listing = excluded.public_listing, updated_at = excluded.updated_at`,
-      id,
-      user.id,
-      JSON.stringify({ ...clean, id }),
-      photoFile,
-      body.publicListing === true ? 1 : 0,
-      now,
-    )
-    if (!photos) return
-    run('DELETE FROM profile_photos WHERE profile_id = ?', id)
-    photos.kept.forEach((g, position) =>
-      run(
-        'INSERT INTO profile_photos (id, profile_id, file, position, created_at) VALUES (?, ?, ?, ?, ?)',
-        g.id,
+  try {
+    await transaction(async (tx) => {
+      // The profile id was chosen before the transaction; if another save created the profile
+      // in the meantime, stop rather than make a second one.
+      const owner = await profileRowForUser(user.id, tx)
+      if (owner && owner.id !== id) throw new BadRequest('Your profile was just saved in another tab. Reload the page and try again.')
+      await tx.run(
+        `INSERT INTO profiles (id, user_id, data, photo_file, is_demo, public_listing, updated_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data, photo_file = excluded.photo_file,
+           public_listing = excluded.public_listing, updated_at = excluded.updated_at`,
         id,
-        g.file,
-        position,
+        user.id,
+        JSON.stringify({ ...clean, id }),
+        photoFile,
+        body.publicListing === true ? 1 : 0,
         now,
-      ),
-    )
-  })
-  for (const file of photos?.removed ?? []) deletePhoto(file)
-  res.json({ profile: toProfile(profileRow(id)!) })
+      )
+      if (!photos) return
+      await tx.run('DELETE FROM profile_photos WHERE profile_id = ?', id)
+      for (const [position, g] of photos.kept.entries()) {
+        await tx.run(
+          'INSERT INTO profile_photos (id, profile_id, file, position, created_at) VALUES (?, ?, ?, ?, ?)',
+          g.id,
+          id,
+          g.file,
+          position,
+          now,
+        )
+      }
+    })
+  } catch (error) {
+    // Nothing was saved, so the photos uploaded for this save aren't needed.
+    await deleteUnusedPhotos(photos?.uploaded ?? [])
+    throw error
+  }
+  // Removed photos go only once nothing points at them (another save may still use one).
+  await deleteUnusedPhotos(photos?.removed ?? [])
+  res.json({ profile: await toProfile((await profileRow(id))!) })
 })
 
-seekerRoutes.delete('/account', (req, res) => {
+seekerRoutes.delete('/account', async (req, res) => {
   const user = currentUser(res, 'seeker')!
-  deleteAccount(user.id)
-  endSession(req, res, 'seeker')
+  await deleteAccount(user.id)
+  await endSession(req, res, 'seeker')
   res.json({ ok: true })
 })
 
 /** Opens a new request. A seeker may have several open at once; they all use the profile's preferences. */
-seekerRoutes.post('/requests', (_req, res) => {
-  const mine = myProfileId(res)
+seekerRoutes.post('/requests', async (_req, res) => {
+  const mine = await myProfileId(res)
   if (!mine) return
-  run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', randomUUID(), mine, Date.now())
+  await run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', randomUUID(), mine, Date.now())
   res.status(201).json({ ok: true })
 })
 
@@ -173,73 +193,75 @@ seekerRoutes.post('/requests', (_req, res) => {
  * Asks to be matched with a featured member: added to the newest open request that isn't matched
  * yet, or a new request is opened.
  */
-seekerRoutes.post('/featured/:id/request', (req, res) => {
-  const mine = myProfileId(res)
+seekerRoutes.post('/featured/:id/request', async (req, res) => {
+  const mine = await myProfileId(res)
   if (!mine) return
-  const candidate = profileRow(req.params.id)
+  const candidate = await profileRow(req.params.id)
   if (!candidate || candidate.public_listing !== 1) return fail(res, 404, 'This member is no longer featured.')
   if (candidate.id === mine) return fail(res, 400, 'You can’t request a match with yourself.')
-  const them = toProfile(candidate)
-  const { seeking } = toProfile(profileRow(mine)!).request
+  const them = await toProfile(candidate)
+  const { seeking } = (await toProfile((await profileRow(mine))!)).request
   if (seeking.length > 0 && !seeking.includes(them.gender)) {
     return fail(res, 400, `${them.name} isn’t someone you’re looking for. Update the gender in your preferences to request them.`)
   }
 
-  const open = requestsForSeeker(mine).filter((r) => requestStatus(r) !== 'closed')
-  if (open.some((r) => r.proposals.some((p) => p.candidateId === candidate.id))) {
-    return fail(res, 409, 'Your matchmaker has already proposed this person to you.')
-  }
-  // Already asked for on one of the open requests: nothing more to do.
-  if (open.some((r) => (r.requestedMembers ?? []).some((a) => a.candidateId === candidate.id))) {
-    return res.status(201).json({ ok: true })
-  }
-  const target = latestRequestFor(
-    open.filter((r) => requestStatus(r) !== 'matched'),
-    mine,
-  )
-
+  // Which request to add them to is decided inside the transaction, so two clicks at once can't
+  // open two new requests.
   const now = Date.now()
-  transaction(() => {
+  const outcome = await transaction(async (tx) => {
+    const open = (await requestsForSeeker(mine, tx)).filter((r) => requestStatus(r) !== 'closed')
+    if (open.some((r) => r.proposals.some((p) => p.candidateId === candidate.id))) return 'already-proposed' as const
+    // Already asked for on one of the open requests: nothing more to do.
+    if (open.some((r) => (r.requestedMembers ?? []).some((a) => a.candidateId === candidate.id))) return 'ok' as const
+    const target = latestRequestFor(
+      open.filter((r) => requestStatus(r) !== 'matched'),
+      mine,
+    )
     let requestId = target?.id
     if (!requestId) {
       requestId = randomUUID()
-      run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', requestId, mine, now)
+      await tx.run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', requestId, mine, now)
     }
-    run(
+    await tx.run(
       'INSERT OR IGNORE INTO requested_members (request_id, candidate_id, created_at) VALUES (?, ?, ?)',
       requestId,
       candidate.id,
       now,
     )
+    return 'ok' as const
   })
+  if (outcome === 'already-proposed') return fail(res, 409, 'Your matchmaker has already proposed this person to you.')
   res.status(201).json({ ok: true })
 })
 
-seekerRoutes.post('/requests/:id/more', (req, res) => {
-  const request = myRequest(res, req.params.id)
+seekerRoutes.post('/requests/:id/more', async (req, res) => {
+  const request = await myRequest(res, req.params.id)
   if (!request) return
   if (requestStatus(request) !== 'responded') return fail(res, 409, 'You can ask for more once every proposal is answered.')
-  run('UPDATE requests SET more_requested_at = ? WHERE id = ?', Date.now(), request.id)
+  await run('UPDATE requests SET more_requested_at = ? WHERE id = ? AND closed_at IS NULL', Date.now(), request.id)
   res.json({ ok: true })
 })
 
-seekerRoutes.post('/requests/:id/close', (req, res) => {
-  const request = myRequest(res, req.params.id)
+seekerRoutes.post('/requests/:id/close', async (req, res) => {
+  const request = await myRequest(res, req.params.id)
   if (!request) return
-  if (!request.closedAt) run('UPDATE requests SET closed_at = ? WHERE id = ?', Date.now(), request.id)
+  await run('UPDATE requests SET closed_at = ? WHERE id = ? AND closed_at IS NULL', Date.now(), request.id)
   res.json({ ok: true })
 })
 
-seekerRoutes.post('/proposals/:id/respond', (req, res) => {
-  const mine = myProfileId(res)
+seekerRoutes.post('/proposals/:id/respond', async (req, res) => {
+  const mine = await myProfileId(res)
   if (!mine) return
-  const ctx = proposalContext(req.params.id)
+  const ctx = await proposalContext(req.params.id)
   if (!ctx || ctx.request.seekerId !== mine) return fail(res, 404, 'Proposal not found.')
-  if (ctx.request.closedAt || proposalState(ctx.proposal) !== 'pending') return fail(res, 409, 'You’ve already answered this.')
+  const answered = () => fail(res, 409, 'You’ve already answered this.')
+  if (ctx.request.closedAt || proposalState(ctx.proposal) !== 'pending') return answered()
   const { response } = req.body ?? {}
   if (response !== 'accepted' && response !== 'declined') return fail(res, 400, 'Answer must be accepted or declined.')
-  run(
-    `UPDATE proposals SET response = ?, responded_at = ?, comment = ?, candidate_response = ? WHERE id = ?`,
+  // Only applies while the proposal is still unanswered, so a double click records one answer.
+  const { changes } = await run(
+    `UPDATE proposals SET response = ?, responded_at = ?, comment = ?, candidate_response = ?
+     WHERE id = ? AND response = 'pending' AND request_id IN (SELECT id FROM requests WHERE closed_at IS NULL)`,
     response,
     Date.now(),
     optionalText(req.body.comment, 'Comment'),
@@ -247,22 +269,32 @@ seekerRoutes.post('/proposals/:id/respond', (req, res) => {
     response === 'accepted' ? 'pending' : null,
     ctx.proposal.id,
   )
+  if (changes !== 1) return answered()
   res.json({ ok: true })
 })
 
-seekerRoutes.post('/proposals/:id/interest', (req, res) => {
-  const mine = myProfileId(res)
-  if (mine) recordInterest(req, res, (candidateId) => candidateId === mine)
+seekerRoutes.post('/proposals/:id/interest', async (req, res) => {
+  const mine = await myProfileId(res)
+  if (mine) await recordInterest(req, res, (candidateId) => candidateId === mine)
 })
 
 /** PLACEHOLDER payment: records a test reference. Replace with a real provider (verify server-side). */
-seekerRoutes.post('/proposals/:id/pay', (req, res) => {
-  const mine = myProfileId(res)
+seekerRoutes.post('/proposals/:id/pay', async (req, res) => {
+  const mine = await myProfileId(res)
   if (!mine) return
-  const ctx = proposalContext(req.params.id)
+  const ctx = await proposalContext(req.params.id)
   if (!ctx || ctx.request.seekerId !== mine) return fail(res, 404, 'Proposal not found.')
-  if (proposalState(ctx.proposal) !== 'mutual') return fail(res, 409, 'Payment is only due once a match is mutual.')
+  const notDue = () => fail(res, 409, 'Payment is only due once a match is mutual.')
+  if (proposalState(ctx.proposal) !== 'mutual') return notDue()
   const paymentRef = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`
-  run('UPDATE proposals SET paid_at = ?, payment_ref = ? WHERE id = ?', Date.now(), paymentRef, ctx.proposal.id)
+  // Only one payment is ever recorded for a proposal, even if "Pay" is pressed twice.
+  const { changes } = await run(
+    `UPDATE proposals SET paid_at = ?, payment_ref = ?
+     WHERE id = ? AND response = 'accepted' AND candidate_response = 'interested' AND paid_at IS NULL`,
+    Date.now(),
+    paymentRef,
+    ctx.proposal.id,
+  )
+  if (changes !== 1) return notDue()
   res.json({ paymentRef })
 })

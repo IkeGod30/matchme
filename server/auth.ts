@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import type { NextFunction, Request, Response } from 'express'
-import { get, run } from './db.ts'
+import { all, get, placeholders, run } from './db.ts'
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>
 
@@ -25,7 +25,7 @@ export const USER_COLUMNS = `u.id, u.email, u.role,
   CASE WHEN u.role = 'matchmaker' AND (SELECT approved_at FROM matchmakers WHERE user_id = u.id) IS NULL
        THEN 'pending' ELSE 'active' END AS status`
 
-export function userById(id: string): User | undefined {
+export function userById(id: string): Promise<User | undefined> {
   return get<User>(`SELECT ${USER_COLUMNS} FROM users u WHERE u.id = ?`, id)
 }
 
@@ -53,7 +53,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 export async function createUser(email: string, password: string, role: Role): Promise<User> {
   const user: User = { id: randomUUID(), email: email.trim().toLowerCase(), role, status: 'active' }
-  run(
+  await run(
     'INSERT INTO users (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)',
     user.id,
     user.email,
@@ -68,29 +68,31 @@ export async function createUser(email: string, password: string, role: Role): P
  * Signs the user in to their own realm (the session cookie is chosen by their role). Only one
  * realm is signed in per browser: starting a session in one ends any session in the other.
  */
-export function startSession(req: Request, res: Response, user: Pick<User, 'id' | 'role'>) {
-  for (const other of ROLES) if (other !== user.role) endSession(req, res, other)
+export async function startSession(req: Request, res: Response, user: Pick<User, 'id' | 'role'>) {
+  for (const other of ROLES) if (other !== user.role) await endSession(req, res, other)
   const token = randomBytes(32).toString('base64url')
   const maxAge = SESSION_DAYS * 24 * 3600 * 1000
-  run('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)', token, user.id, Date.now() + maxAge)
+  await run('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)', token, user.id, Date.now() + maxAge)
   res.cookie(SESSION_COOKIES[user.role], token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    // HTTPS only in production. Always on Vercel (which serves over HTTPS), without needing
+    // NODE_ENV=production there — setting that would stop Vercel installing the build tools.
+    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
     maxAge,
     path: '/',
   })
 }
 
 /** Signs a user out everywhere, e.g. when their account is suspended. */
-export function endAllSessions(userId: string) {
-  run('DELETE FROM sessions WHERE user_id = ?', userId)
+export async function endAllSessions(userId: string) {
+  await run('DELETE FROM sessions WHERE user_id = ?', userId)
 }
 
 /** Signs out of one realm only; a session in the other realm is left alone. */
-export function endSession(req: Request, res: Response, role: Role) {
+export async function endSession(req: Request, res: Response, role: Role) {
   const token = readCookie(req, SESSION_COOKIES[role])
-  if (token) run('DELETE FROM sessions WHERE token = ?', token)
+  if (token) await run('DELETE FROM sessions WHERE token = ?', token)
   res.clearCookie(SESSION_COOKIES[role], { path: '/' })
 }
 
@@ -106,23 +108,32 @@ function readCookie(req: Request, name: string): string | undefined {
  * Attaches the signed-in user of each realm (if any) to res.locals.users. A session only
  * counts in the realm whose cookie carries it and only for a user of that role, so e.g. a
  * matchmaker's session in the seeker cookie (from before the realms were split) is dropped.
+ * All the request's session cookies are looked up in one query.
  */
-export function loadUser(req: Request, res: Response, next: NextFunction) {
+export async function loadUser(req: Request, res: Response, next: NextFunction) {
   const users: Partial<Record<Role, User>> = {}
+  const tokens = new Map<string, Role[]>()
   for (const role of ROLES) {
     const token = readCookie(req, SESSION_COOKIES[role])
-    if (!token) continue
-    const user = get<User & { expires_at: number; suspended_at: number | null }>(
-      `SELECT ${USER_COLUMNS}, s.expires_at, u.suspended_at FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ?`,
-      token,
+    if (token) tokens.set(token, [...(tokens.get(token) ?? []), role])
+  }
+  if (tokens.size > 0) {
+    const rows = await all<User & { token: string; expires_at: number; suspended_at: number | null }>(
+      `SELECT ${USER_COLUMNS}, s.token, s.expires_at, u.suspended_at FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token IN (${placeholders([...tokens.keys()])})`,
+      ...tokens.keys(),
     )
-    // A suspended account's sessions stop working at once.
-    if (user && user.expires_at > Date.now() && user.role === role && user.suspended_at === null) {
-      users[role] = { id: user.id, email: user.email, role: user.role, status: user.status }
-    } else if (user) {
-      run('DELETE FROM sessions WHERE token = ?', token)
+    const stale: string[] = []
+    for (const user of rows) {
+      const cookieRoles = tokens.get(user.token) ?? []
+      // A suspended account's sessions stop working at once.
+      if (user.expires_at > Date.now() && cookieRoles.includes(user.role) && user.suspended_at === null) {
+        users[user.role] = { id: user.id, email: user.email, role: user.role, status: user.status }
+      } else {
+        stale.push(user.token)
+      }
     }
+    if (stale.length > 0) await run(`DELETE FROM sessions WHERE token IN (${placeholders(stale)})`, ...stale)
   }
   res.locals.users = users
   next()
@@ -150,23 +161,52 @@ export function requireRole(role: Role) {
   }
 }
 
-// Simple in-memory limiter for login/sign-up: blocks an IP after too many *failed* attempts.
+/*
+ * Limiter for log-in, sign-up and password reset: blocks an IP after too many *failed* attempts.
+ * The counts are in the database (login_failures) so every server instance shares them. A failed
+ * attempt is counted before its answer is sent, so it's never lost when the instance stops.
+ */
 const FAILURE_LIMIT = 20
 const WINDOW_MS = 15 * 60_000
-const failures = new Map<string, { count: number; resetAt: number }>()
 
-export function rateLimit(req: Request, res: Response, next: NextFunction) {
-  const key = req.ip ?? 'unknown'
+async function recordFailure(ip: string) {
   const now = Date.now()
-  const entry = failures.get(key)
-  if (entry && entry.resetAt > now && entry.count >= FAILURE_LIMIT) {
+  await run(
+    `INSERT INTO login_failures (ip, count, reset_at) VALUES (?, 1, ?)
+     ON CONFLICT(ip) DO UPDATE SET
+       count    = CASE WHEN reset_at < ? THEN 1 ELSE count + 1 END,
+       reset_at = CASE WHEN reset_at < ? THEN excluded.reset_at ELSE reset_at END`,
+    ip,
+    now + WINDOW_MS,
+    now,
+    now,
+  )
+}
+
+export async function rateLimit(req: Request, res: Response, next: NextFunction) {
+  const ip = req.ip ?? 'unknown'
+  const entry = await get<{ count: number; reset_at: number }>('SELECT count, reset_at FROM login_failures WHERE ip = ?', ip)
+  if (entry && entry.reset_at > Date.now() && entry.count >= FAILURE_LIMIT) {
     return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' })
   }
-  res.on('finish', () => {
-    if (res.statusCode < 400) return
-    const current = failures.get(key)
-    if (!current || current.resetAt < Date.now()) failures.set(key, { count: 1, resetAt: Date.now() + WINDOW_MS })
-    else current.count++
-  })
+  // Every answer from these routes (including errors) goes through res.json.
+  const json = res.json.bind(res)
+  res.json = (body: unknown) => {
+    if (res.statusCode < 400) return json(body)
+    recordFailure(ip)
+      .catch((error) => console.error('Could not record a failed attempt:', error))
+      .finally(() => json(body))
+    return res
+  }
   next()
+}
+
+/** Removes expired sessions, reset links and rate-limit entries (daily cron job). */
+export async function cleanUpExpired(): Promise<Record<string, number>> {
+  const now = Date.now()
+  return {
+    sessions: (await run('DELETE FROM sessions WHERE expires_at < ?', now)).changes,
+    passwordResets: (await run('DELETE FROM password_resets WHERE expires_at < ?', now)).changes,
+    loginFailures: (await run('DELETE FROM login_failures WHERE reset_at < ?', now)).changes,
+  }
 }

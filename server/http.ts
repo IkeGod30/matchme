@@ -34,20 +34,26 @@ export function textList(value: unknown, field: string, maxItems: number, maxLen
 
 /**
  * Records the proposed person's answer once the seeker has accepted — either by the
- * candidate themselves or by a matchmaker who contacted them.
+ * candidate themselves or by a matchmaker who contacted them. The update only applies while the
+ * proposal is still waiting for this answer, so two answers at once can't both be recorded.
  */
-export function recordInterest(req: Request, res: Response, allowed: (candidateId: string) => boolean) {
-  const ctx = proposalContext(req.params.id as string)
+export async function recordInterest(req: Request, res: Response, allowed: (candidateId: string) => boolean) {
+  const ctx = await proposalContext(req.params.id as string)
   if (!ctx || !allowed(ctx.proposal.candidateId)) return fail(res, 404, 'Proposal not found.')
-  if (ctx.request.closedAt || proposalState(ctx.proposal) !== 'checking') return fail(res, 409, 'This has already been answered.')
+  const answered = () => fail(res, 409, 'This has already been answered.')
+  if (ctx.request.closedAt || proposalState(ctx.proposal) !== 'checking') return answered()
   const { answer } = req.body ?? {}
   if (answer !== 'interested' && answer !== 'not_interested') return fail(res, 400, 'Answer must be interested or not_interested.')
-  run(
-    'UPDATE proposals SET candidate_response = ?, candidate_responded_at = ?, candidate_comment = ? WHERE id = ?',
+  const { changes } = await run(
+    `UPDATE proposals SET candidate_response = ?, candidate_responded_at = ?, candidate_comment = ?
+     WHERE id = ? AND response = 'accepted' AND paid_at IS NULL
+       AND (candidate_response IS NULL OR candidate_response = 'pending')
+       AND request_id IN (SELECT id FROM requests WHERE closed_at IS NULL)`,
     answer,
     Date.now(),
     optionalText(req.body.comment, 'Comment'),
     ctx.proposal.id,
   )
+  if (changes !== 1) return answered()
   res.json({ ok: true })
 }

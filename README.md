@@ -5,7 +5,9 @@ physical preferences), a matchmaker proposes hand-picked people, and seekers pay
 once a match is mutual.
 
 - **Web app**: React + TypeScript + Vite (`src/`)
-- **API**: Node + Express + SQLite (`server/`), using Node's built-in `node:sqlite`
+- **API**: Node + Express + SQLite (`server/`), through libSQL: a local file in development,
+  Turso in production. Photos are files locally and in a private Vercel Blob store in production.
+- **Hosting**: Vercel + Turso — see [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## Three kinds of users
 
@@ -58,7 +60,7 @@ pieces both sides use (pictures, cards, chips) are in `src/components/shared/`.
 
 ## Requirements
 
-Node.js 22.18 or newer (the server runs TypeScript directly).
+Node.js 24 (the server runs TypeScript directly).
 
 ## Getting started
 
@@ -108,7 +110,10 @@ To send real email, set these before starting the server:
 | `npm run create-admin` | Adds a super user (`/admin`) to an existing database |
 | `npm run build` | Type-checks app and server, builds the web app to `dist/` |
 | `npm start` | Production: serves the API and the built app on one port (`PORT`, default 3001) |
-| `npm run lint` | oxlint |
+| `npm run lint` | oxlint (type-aware: also catches promises the server forgets to await) |
+| `npm run migrate` | Creates/upgrades the database schema (also runs when the dev server starts and on every deploy) |
+| `npm run vercel-build` | Vercel's build: migrate, build, bundle the API (`.vercel/output`) |
+| `npm run backup-local`, `copy-db`, `import-photos`, `manifest`, `verify-migration`, `race-test` | Moving the data to Turso + Blob and proving it's complete — see [DEPLOYMENT.md](DEPLOYMENT.md) |
 
 ## How privacy is enforced
 
@@ -155,5 +160,5 @@ California.
 - **Payments** are a placeholder (`POST /api/seeker/proposals/:id/pay` records a test
   reference). Connect a provider such as Paystack or Stripe and verify payments server-side.
 - **Demo photos** in `src/assets/demo-photos/` are placeholders for testing only.
-- Run behind HTTPS (`NODE_ENV=production` marks the session cookie `Secure`), back up
-  `server/data/`, and consider Postgres and object storage for photos as you grow.
+- **Hosting:** follow [DEPLOYMENT.md](DEPLOYMENT.md) (Vercel + Turso + Vercel Blob). Session
+  cookies are `Secure` on Vercel (and wherever `NODE_ENV=production`).

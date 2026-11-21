@@ -6,30 +6,67 @@
 //   npm run seed -- --update-samples refresh sample members' details from src/data/sampleProfiles.ts
 //                                    (keeps real accounts, photos, requests and visibility)
 //
+// With `-- --target staging` (or production) it uses that hosted database and Blob store, from
+// .env.staging / .env.production. --reset refuses to wipe a hosted database unless --i-know-this-is-remote is added.
+//
 // Matchmaker login: MATCHMAKER_EMAIL / MATCHMAKER_PASSWORD env vars, otherwise
 // matchmaker@matchmehub.local with a generated password that is printed once.
 // Super user (/admin): ADMIN_EMAIL / ADMIN_PASSWORD the same way (admin@matchmehub.local).
 
+import './target-env.ts'
 import { randomBytes } from 'node:crypto'
-import { copyFileSync, existsSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { createServer } from 'vite'
 import type { Profile } from '../src/types.ts'
-import { DATA_DIR, DB_FILE } from './db-paths.ts'
+import { DATA_DIR, localDbFile } from './db-paths.ts'
 
 const root = path.resolve(import.meta.dirname, '..')
+const remote = !!process.env.TURSO_DATABASE_URL && !process.env.TURSO_DATABASE_URL.startsWith('file:')
 
 if (process.argv.includes('--reset')) {
-  rmSync(DB_FILE, { force: true })
-  rmSync(`${DB_FILE}-wal`, { force: true })
-  rmSync(`${DB_FILE}-shm`, { force: true })
-  rmSync(path.join(DATA_DIR, 'uploads'), { recursive: true, force: true })
-  console.log('Database and uploads wiped.')
+  if (remote) {
+    if (!process.argv.includes('--i-know-this-is-remote')) {
+      console.error(
+        `--reset would permanently delete everything in the hosted database (${process.env.TURSO_DATABASE_URL}).\n` +
+          'If that is really what you want, run: npm run seed -- --reset --i-know-this-is-remote',
+      )
+      process.exit(1)
+    }
+  } else {
+    const file = localDbFile()
+    rmSync(file, { force: true })
+    rmSync(`${file}-wal`, { force: true })
+    rmSync(`${file}-shm`, { force: true })
+    rmSync(path.join(DATA_DIR, 'uploads'), { recursive: true, force: true })
+    console.log('Database and uploads wiped.')
+  }
 }
 
-// Imported after the optional reset so the schema is recreated on a fresh file.
-const { get, run, transaction, UPLOAD_DIR } = await import('./db.ts')
+// Imported after the optional reset so the database is opened on a fresh file.
+const { all, client, get, run, transaction } = await import('./db.ts')
+const { migrate } = await import('./migrate.ts')
 const { createUser } = await import('./auth.ts')
+const { storePhoto, usesBlobStorage } = await import('./photos.ts')
+
+if (process.argv.includes('--reset') && remote) {
+  const tables = await all<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+  await client.executeMultiple(
+    ['PRAGMA foreign_keys = OFF;', ...tables.map((t) => `DROP TABLE IF EXISTS "${t.name}";`), 'PRAGMA foreign_keys = ON;'].join('\n'),
+  )
+  if (usesBlobStorage) {
+    const { del, list } = await import('@vercel/blob')
+    let cursor: string | undefined
+    do {
+      const page = await list({ prefix: 'photos/', cursor })
+      if (page.blobs.length > 0) await del(page.blobs.map((b) => b.url))
+      cursor = page.hasMore ? page.cursor : undefined
+    } while (cursor)
+  }
+  console.log('Hosted database and photos wiped.')
+}
+
+await migrate()
 
 // Sample profiles live in the web app and use Vite features (bundled photo imports),
 // so load them through Vite.
@@ -47,17 +84,19 @@ function profileData(p: Profile): string {
 }
 
 if (process.argv.includes('--update-samples')) {
-  let updated = 0
-  transaction(() => {
+  const updated = await transaction(async (tx) => {
+    let n = 0
     for (const p of SAMPLE_PROFILES) {
-      updated += Number(run('UPDATE profiles SET data = ?, updated_at = ? WHERE id = ? AND is_demo = 1', profileData(p), Date.now(), p.id).changes)
+      n += (await tx.run('UPDATE profiles SET data = ?, updated_at = ? WHERE id = ? AND is_demo = 1', profileData(p), Date.now(), p.id))
+        .changes
     }
+    return n
   })
   console.log(`Updated ${updated} sample members. Real accounts, photos and requests were left as they are.`)
   process.exit(0)
 }
 
-if (get('SELECT 1 FROM profiles LIMIT 1')) {
+if (await get('SELECT 1 FROM profiles LIMIT 1')) {
   console.log('The database already has members. Use `npm run seed -- --reset` to start over,')
   console.log('or `npm run seed -- --update-samples` to refresh the sample members only.')
   process.exit(0)
@@ -67,23 +106,26 @@ const now = Date.now()
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
-transaction(() => {
+// Photos are stored first (outside the transaction, which may be retried).
+const photoFiles = new Map<string, string>()
+for (const p of SAMPLE_PROFILES) {
+  if (!p.photo) continue
+  // e.g. /src/assets/demo-photos/daniel.jpg
+  const source = path.join(root, p.photo.split('?')[0])
+  if (!existsSync(source)) continue
+  const file = `demo-${path.basename(source)}`
+  await storePhoto(file, readFileSync(source))
+  photoFiles.set(p.id, file)
+}
+
+await transaction(async (tx) => {
   for (const p of SAMPLE_PROFILES) {
-    let photoFile: string | null = null
-    if (p.photo) {
-      // e.g. /src/assets/demo-photos/daniel.jpg
-      const source = path.join(root, p.photo.split('?')[0])
-      if (existsSync(source)) {
-        photoFile = `demo-${path.basename(source)}`
-        copyFileSync(source, path.join(UPLOAD_DIR, photoFile))
-      }
-    }
-    run(
+    await tx.run(
       `INSERT INTO profiles (id, user_id, data, photo_file, is_demo, public_listing, updated_at)
        VALUES (?, NULL, ?, ?, 1, ?, ?)`,
       p.id,
       profileData(p),
-      photoFile,
+      photoFiles.get(p.id) ?? null,
       p.publicListing ? 1 : 0,
       now,
     )
@@ -92,16 +134,16 @@ transaction(() => {
   const byName = (name: string) => SAMPLE_PROFILES.find((p) => p.name === name)!.id
 
   // Two new requests waiting for the matchmaker, and one further along.
-  run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', 'req-seed-1', byName('Amara'), now - 2 * DAY)
-  run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', 'req-seed-2', byName('Kwame'), now - 5 * HOUR)
-  run(
+  await tx.run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', 'req-seed-1', byName('Amara'), now - 2 * DAY)
+  await tx.run('INSERT INTO requests (id, seeker_id, created_at) VALUES (?, ?, ?)', 'req-seed-2', byName('Kwame'), now - 5 * HOUR)
+  await tx.run(
     'INSERT INTO requests (id, seeker_id, created_at, notes) VALUES (?, ?, ?, ?)',
     'req-seed-3',
     byName('Nia'),
     now - 4 * DAY,
     JSON.stringify([{ at: now - 2 * DAY, text: 'Nia, I think both of these gentlemen could be a lovely fit. Let me know!' }]),
   )
-  run(
+  await tx.run(
     `INSERT INTO proposals (id, request_id, candidate_id, note, proposed_at, response, responded_at, comment)
      VALUES (?, ?, ?, ?, ?, 'declined', ?, ?)`,
     'prop-seed-1',
@@ -112,7 +154,7 @@ transaction(() => {
     now - DAY,
     'He seems wonderful, but I would really prefer someone already in the US.',
   )
-  run(
+  await tx.run(
     `INSERT INTO proposals (id, request_id, candidate_id, note, proposed_at, response, responded_at, comment,
        candidate_response, candidate_responded_at, candidate_comment)
      VALUES (?, ?, ?, ?, ?, 'accepted', ?, ?, 'interested', ?, ?)`,
@@ -127,15 +169,17 @@ transaction(() => {
     'Happy to meet her — she sounds lovely.',
   )
 })
+// Sample members' single photo becomes the first photo of their gallery.
+await migrate()
 console.log(`Added ${SAMPLE_PROFILES.length} sample members and 3 demo requests.`)
 
 const email = process.env.MATCHMAKER_EMAIL ?? 'matchmaker@matchmehub.local'
-if (get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
+if (await get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
   console.log(`Matchmaker account ${email} already exists.`)
 } else {
   const password = process.env.MATCHMAKER_PASSWORD ?? randomBytes(9).toString('base64url')
   const matchmaker = await createUser(email, password, 'matchmaker')
-  run(
+  await run(
     `INSERT INTO matchmakers (user_id, display_name, bio, specialties, languages, updated_at, approved_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     matchmaker.id,
@@ -147,7 +191,7 @@ if (get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
     Date.now(),
   )
   // The demo request that's already in progress belongs to this matchmaker.
-  run('UPDATE requests SET matchmaker_id = ?, assigned_at = ? WHERE id = ?', matchmaker.id, Date.now(), 'req-seed-3')
+  await run('UPDATE requests SET matchmaker_id = ?, assigned_at = ? WHERE id = ?', matchmaker.id, Date.now(), 'req-seed-3')
   console.log('\nMatchmaker account created:')
   console.log(`  email:    ${email}`)
   console.log(`  password: ${process.env.MATCHMAKER_PASSWORD ? '(from MATCHMAKER_PASSWORD)' : password}`)
@@ -156,5 +200,6 @@ if (get('SELECT 1 FROM users WHERE email = ?', email.toLowerCase())) {
 
 // The super user who manages every account at /admin.
 const { createSuperUserFromEnv } = await import('./accounts.ts')
-if (get(`SELECT 1 FROM users WHERE role = 'admin'`)) console.log('A super user already exists.')
+if (await get(`SELECT 1 FROM users WHERE role = 'admin'`)) console.log('A super user already exists.')
 else await createSuperUserFromEnv()
+client.close()

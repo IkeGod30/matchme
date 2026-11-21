@@ -1,61 +1,39 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import express, { type NextFunction, type Request, type Response } from 'express'
-import { loadUser } from './auth.ts'
-import { get } from './db.ts'
-import { fail } from './http.ts'
+import { app, errorHandler } from './app.ts'
+import { dbLabel, get } from './db.ts'
 import { isEmailConfigured } from './mailer.ts'
-import { BadRequest } from './photos.ts'
-import { adminRoutes } from './routes/admin.ts'
-import { authRoutes } from './routes/auth.ts'
-import { matchmakerRoutes } from './routes/matchmaker.ts'
-import { publicRoutes } from './routes/public.ts'
-import { seekerRoutes } from './routes/seeker.ts'
+import { migrate } from './migrate.ts'
 
-// MatchMeHub API. Routes are grouped by who uses them:
-//   /api/auth/*        sign-up, login, password reset, matchmaker invitations
-//   /api/*             public pages and access-checked photos
-//   /api/seeker/*      seekers (role: seeker)
-//   /api/matchmaker/*  matchmakers (role: matchmaker)
-//   /api/admin/*       super users (role: admin): every account, matchmaker applications
+// Runs the API as a normal server: `npm run dev:api` locally, or `npm start` (which also serves the
+// built web app). On Vercel the same app runs as a function instead (server/vercel.ts).
 
 const PORT = Number(process.env.PORT ?? 3001)
 const SERVE_DIST = process.argv.includes('--serve-dist')
 
-const app = express()
-app.disable('x-powered-by')
-app.use(express.json({ limit: '4mb' }))
-app.use(loadUser)
-
-app.use('/api/auth', authRoutes)
-app.use('/api/seeker', seekerRoutes)
-app.use('/api/matchmaker', matchmakerRoutes)
-app.use('/api/admin', adminRoutes)
-app.use('/api', publicRoutes)
-app.use('/api', (_req, res) => fail(res, 404, 'Not found.'))
+// Keeps the schema up to date (on Vercel this happens once per deploy instead).
+await migrate()
 
 /* ---------- Production: serve the built web app ---------- */
 
 if (SERVE_DIST) {
   const dist = path.resolve(import.meta.dirname, '..', 'dist')
   if (!existsSync(dist)) throw new Error('No dist/ folder. Run `npm run build` first.')
+  const { default: express } = await import('express')
   app.use(express.static(dist))
   app.use((req, res, next) => (req.method === 'GET' ? res.sendFile(path.join(dist, 'index.html')) : next()))
 }
 
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (error instanceof BadRequest) return fail(res, 400, error.message)
-  if ((error as { type?: string }).type === 'entity.too.large') return fail(res, 413, 'That upload is too large.')
-  console.error(error)
-  fail(res, 500, 'Something went wrong on our side. Please try again.')
-})
+app.use(errorHandler)
+
+const hasMembers = !!(await get('SELECT 1 FROM profiles LIMIT 1'))
 
 const server = app.listen(PORT, () => {
-  console.log(`MatchMeHub API listening on http://localhost:${PORT}`)
+  console.log(`MatchMeHub API listening on http://localhost:${PORT} (database: ${dbLabel})`)
   if (!isEmailConfigured()) {
     console.log('Email: SMTP not configured — emails are printed here and saved to server/data/outbox/.')
   }
-  if (!get('SELECT 1 FROM profiles LIMIT 1')) {
+  if (!hasMembers) {
     console.log('The database is empty — run `npm run seed` to add the sample members and a matchmaker account.')
   }
 })

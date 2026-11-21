@@ -10,9 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 
-# Local database and uploaded photos
+# Local database and uploaded photos, and their backups
 server/data
+server/data-backup-*
+restored-uploads
 dist-ssr
+
+# Deployment: Vercel's build output and project link, secrets, migration manifests
+.vercel
+.env
+.env.*
+!.env.example
+migration
 *.local
 
 # Editor directories and files

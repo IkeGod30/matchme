@@ -1,244 +1,102 @@
 import { mkdirSync } from 'node:fs'
-import { DatabaseSync } from 'node:sqlite'
-import { DB_FILE, UPLOAD_DIR } from './db-paths.ts'
+import path from 'node:path'
+import { createClient, type InStatement, type ResultSet } from '@libsql/client'
+import { localDbFile } from './db-paths.ts'
 
-export { DATA_DIR, DB_FILE, UPLOAD_DIR } from './db-paths.ts'
+// The database. In production it's Turso (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); locally it's
+// the SQLite file in server/data/ (libSQL reads and writes the same file format). The schema
+// and its upgrades live in migrate.ts, which runs once per deploy (and when the dev server starts).
 
-mkdirSync(UPLOAD_DIR, { recursive: true })
+type Param = string | number | null
 
-export const db = new DatabaseSync(DB_FILE)
-
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
-
-  -- Seekers (public site), matchmakers (/matchmaker) and super users (/admin) are separate
-  -- realms: the same email can have one account in each, and each realm has its own log-in
-  -- and session cookie.
-  CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY,
-    email         TEXT NOT NULL COLLATE NOCASE,
-    password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker', 'admin')),
-    created_at    INTEGER NOT NULL,
-    UNIQUE (email, role)
-  );
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    token      TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at INTEGER NOT NULL
-  );
-
-  -- One-time password reset links. Only a SHA-256 hash of the token is stored.
-  CREATE TABLE IF NOT EXISTS password_resets (
-    token_hash TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at INTEGER NOT NULL,
-    used_at    INTEGER
-  );
-
-  -- Member profiles. Sample (demo) members have no user account.
-  CREATE TABLE IF NOT EXISTS profiles (
-    id             TEXT PRIMARY KEY,
-    user_id        TEXT UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    data           TEXT NOT NULL,
-    photo_file     TEXT,
-    is_demo        INTEGER NOT NULL DEFAULT 0,
-    public_listing INTEGER NOT NULL DEFAULT 0,
-    updated_at     INTEGER NOT NULL
-  );
-
-  -- A member's photos in display order. The first one is also kept in profiles.photo_file as
-  -- their main photo (portraits, public cards).
-  CREATE TABLE IF NOT EXISTS profile_photos (
-    id         TEXT PRIMARY KEY,
-    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    file       TEXT NOT NULL,
-    position   INTEGER NOT NULL,
-    created_at INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS profile_photos_by_profile ON profile_photos (profile_id, position);
-
-  CREATE TABLE IF NOT EXISTS requests (
-    id                TEXT PRIMARY KEY,
-    seeker_id         TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    created_at        INTEGER NOT NULL,
-    closed_at         INTEGER,
-    more_requested_at INTEGER,
-    notes             TEXT NOT NULL DEFAULT '[]'
-  );
-
-  CREATE TABLE IF NOT EXISTS proposals (
-    id                     TEXT PRIMARY KEY,
-    request_id             TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
-    candidate_id           TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    note                   TEXT NOT NULL DEFAULT '',
-    proposed_at            INTEGER NOT NULL,
-    response               TEXT NOT NULL DEFAULT 'pending',
-    responded_at           INTEGER,
-    comment                TEXT,
-    candidate_response     TEXT,
-    candidate_responded_at INTEGER,
-    candidate_comment      TEXT,
-    paid_at                INTEGER,
-    payment_ref            TEXT
-  );
-
-  -- Featured members a seeker asked to be matched with, by name, from the Featured page.
-  CREATE TABLE IF NOT EXISTS requested_members (
-    request_id   TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
-    candidate_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    created_at   INTEGER NOT NULL,
-    PRIMARY KEY (request_id, candidate_id)
-  );
-
-  CREATE TABLE IF NOT EXISTS examples (
-    key        TEXT PRIMARY KEY,
-    photo_file TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-
-  -- Matchmakers' public-facing profile (shown to the seekers they look after).
-  CREATE TABLE IF NOT EXISTS matchmakers (
-    user_id      TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    display_name TEXT NOT NULL,
-    bio          TEXT NOT NULL DEFAULT '',
-    specialties  TEXT NOT NULL DEFAULT '[]',
-    languages    TEXT NOT NULL DEFAULT '[]',
-    photo_file   TEXT,
-    updated_at   INTEGER NOT NULL
-  );
-
-  -- Private notes matchmakers keep on a request. Never sent to seekers.
-  CREATE TABLE IF NOT EXISTS request_notes (
-    id         TEXT PRIMARY KEY,
-    request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
-    author_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
-    text       TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  );
-
-  -- Invitations for new matchmakers. Only a SHA-256 hash of the token is stored.
-  CREATE TABLE IF NOT EXISTS invites (
-    id         TEXT PRIMARY KEY,
-    token_hash TEXT NOT NULL UNIQUE,
-    email      TEXT,
-    created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-    created_at INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL,
-    used_at    INTEGER,
-    used_by    TEXT REFERENCES users(id) ON DELETE SET NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS requests_seeker ON requests(seeker_id);
-  CREATE INDEX IF NOT EXISTS request_notes_request ON request_notes(request_id);
-  CREATE INDEX IF NOT EXISTS proposals_request ON proposals(request_id);
-  CREATE INDEX IF NOT EXISTS proposals_candidate ON proposals(candidate_id);
-`)
-
-/* ---------- Upgrades for databases created by earlier versions ---------- */
-
-/** Adds a column if it's missing; returns true when it was just added. */
-function addColumn(table: string, column: string, definition: string): boolean {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
-  if (columns.some((c) => c.name === column)) return false
-  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
-  return true
+const remoteUrl = process.env.TURSO_DATABASE_URL?.trim() || undefined
+if (!remoteUrl && process.env.VERCEL) {
+  throw new Error('TURSO_DATABASE_URL is not set. Add it (and TURSO_AUTH_TOKEN) in the Vercel project settings.')
 }
 
-// Emails used to be unique across all accounts; now they're unique per realm. Later the super
-// user ('admin') role was added. SQLite can't change a constraint in place, so the table is
-// rebuilt once for each (the columns added since are created again just below).
-const usersSql = (db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get() as { sql: string })
-  .sql
-if (!/UNIQUE\s*\(\s*email\s*,\s*role\s*\)/i.test(usersSql) || !usersSql.includes("'admin'")) {
-  db.exec('PRAGMA foreign_keys = OFF')
-  try {
-    db.exec(`
-      BEGIN;
-      CREATE TABLE users_new (
-        id            TEXT PRIMARY KEY,
-        email         TEXT NOT NULL COLLATE NOCASE,
-        password_hash TEXT NOT NULL,
-        role          TEXT NOT NULL CHECK (role IN ('seeker', 'matchmaker', 'admin')),
-        created_at    INTEGER NOT NULL,
-        UNIQUE (email, role)
-      );
-      INSERT INTO users_new (id, email, password_hash, role, created_at)
-        SELECT id, email, password_hash, role, created_at FROM users;
-      DROP TABLE users;
-      ALTER TABLE users_new RENAME TO users;
-    `)
-    const broken = db.prepare('PRAGMA foreign_key_check').all()
-    if (broken.length > 0) throw new Error(`Users migration broke ${broken.length} foreign key(s).`)
-    db.exec('COMMIT')
-  } catch (error) {
-    if (db.isTransaction) db.exec('ROLLBACK')
-    throw error
-  } finally {
-    db.exec('PRAGMA foreign_keys = ON')
+/** True when the database is hosted (Turso) rather than a local file. */
+export const isRemoteDb = !!remoteUrl && !remoteUrl.startsWith('file:')
+
+function localUrl(): string {
+  const file = localDbFile()
+  mkdirSync(path.dirname(file), { recursive: true })
+  return `file:${file.replace(/\\/g, '/')}`
+}
+
+/** A short label for logs and scripts, without any token. */
+export const dbLabel = remoteUrl ? remoteUrl.replace(/\?.*$/, '') : localUrl()
+
+export const client = createClient({
+  url: remoteUrl ?? localUrl(),
+  authToken: process.env.TURSO_AUTH_TOKEN?.trim() || undefined,
+})
+
+/* ---------- Typed helpers (rows come back as plain objects) ---------- */
+
+function rowsOf<T>(result: ResultSet): T[] {
+  return result.rows.map((row) => Object.fromEntries(result.columns.map((column, i) => [column, row[i]]))) as T[]
+}
+
+export interface RunResult {
+  changes: number
+  lastInsertRowid: bigint | undefined
+}
+
+/** The query helpers. Inside a transaction, the same helpers run on the transaction. */
+export interface Queries {
+  all: <T>(sql: string, ...params: Param[]) => Promise<T[]>
+  get: <T>(sql: string, ...params: Param[]) => Promise<T | undefined>
+  run: (sql: string, ...params: Param[]) => Promise<RunResult>
+}
+
+function queries(execute: (statement: InStatement) => Promise<ResultSet>): Queries {
+  return {
+    all: async <T>(sql: string, ...params: Param[]) => rowsOf<T>(await execute({ sql, args: params })),
+    get: async <T>(sql: string, ...params: Param[]) => rowsOf<T>(await execute({ sql, args: params }))[0],
+    run: async (sql: string, ...params: Param[]) => {
+      const result = await execute({ sql, args: params })
+      return { changes: result.rowsAffected, lastInsertRowid: result.lastInsertRowid }
+    },
   }
 }
 
-// A super user can suspend any account: it can't log in, and its sessions are ended.
-addColumn('users', 'suspended_at', 'INTEGER')
-// When the person accepted the terms, privacy policy and (matchmakers) code of conduct at sign-up.
-addColumn('users', 'terms_accepted_at', 'INTEGER')
-// A super user promoted from a matchmaker account points back to it (for display).
-addColumn('users', 'promoted_from', 'TEXT REFERENCES users(id) ON DELETE SET NULL')
+/** SQLite answers "busy" when another connection holds the write lock; the statement didn't run. */
+const isBusy = (error: unknown) => /SQLITE_BUSY|database is locked/i.test(String((error as Error)?.message ?? error))
 
-// Which matchmaker looks after a request (NULL = unassigned).
-addColumn('requests', 'matchmaker_id', 'TEXT REFERENCES users(id) ON DELETE SET NULL')
-addColumn('requests', 'assigned_at', 'INTEGER')
-
-// Matchmakers who applied publicly wait for approval (approved_at NULL) before they can see anything.
-// Matchmakers that existed before approvals were introduced are approved once, here.
-if (addColumn('matchmakers', 'approved_at', 'INTEGER')) {
-  db.exec('UPDATE matchmakers SET approved_at = updated_at')
-}
-// The application (experience, motivation) a matchmaker submitted, as JSON.
-addColumn('matchmakers', 'application', 'TEXT')
-
-// Members whose single photo predates photo galleries (or was just seeded) get it as their first photo.
-db.exec(`
-  INSERT INTO profile_photos (id, profile_id, file, position, created_at)
-  SELECT lower(hex(randomblob(16))), p.id, p.photo_file, 0, p.updated_at
-  FROM profiles p
-  WHERE p.photo_file IS NOT NULL AND NOT EXISTS (SELECT 1 FROM profile_photos g WHERE g.profile_id = p.id)
-`)
-
-// Every matchmaker account gets a profile, named after their email until they edit it.
-// (Accounts created before profiles existed were already trusted, so they're approved.)
-db.exec(`
-  INSERT INTO matchmakers (user_id, display_name, updated_at, approved_at)
-  SELECT u.id, substr(u.email, 1, instr(u.email, '@') - 1), u.created_at, u.created_at
-  FROM users u LEFT JOIN matchmakers m ON m.user_id = u.id
-  WHERE u.role = 'matchmaker' AND m.user_id IS NULL
-`)
-
-/** Typed helpers around node:sqlite's untyped rows. */
-export function all<T>(sql: string, ...params: (string | number | null)[]): T[] {
-  return db.prepare(sql).all(...params) as unknown as T[]
-}
-
-export function get<T>(sql: string, ...params: (string | number | null)[]): T | undefined {
-  return db.prepare(sql).get(...params) as unknown as T | undefined
-}
-
-export function run(sql: string, ...params: (string | number | null)[]) {
-  return db.prepare(sql).run(...params)
-}
-
-/** Runs `fn` atomically. */
-export function transaction<T>(fn: () => T): T {
-  db.exec('BEGIN')
-  try {
-    const result = fn()
-    db.exec('COMMIT')
-    return result
-  } catch (error) {
-    db.exec('ROLLBACK')
-    throw error
+async function retryWhenBusy<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (!isBusy(error) || attempt >= 40) throw error
+      await new Promise((resolve) => setTimeout(resolve, 25 + Math.random() * 75))
+    }
   }
 }
+
+export const db: Queries = queries((statement) => retryWhenBusy(() => client.execute(statement)))
+export const { all, get, run } = db
+
+/**
+ * Runs `fn` atomically in a write transaction; everything inside must use the `tx` helpers.
+ * Writers are serialized, so reads inside see the latest data. If the database is busy, the
+ * whole transaction is retried, so `fn` must not have side effects outside the database.
+ */
+export async function transaction<T>(fn: (tx: Queries) => Promise<T>): Promise<T> {
+  return retryWhenBusy(async () => {
+    const tx = await client.transaction('write')
+    try {
+      const result = await fn(queries((statement) => tx.execute(statement)))
+      await tx.commit()
+      return result
+    } catch (error) {
+      if (!tx.closed) await tx.rollback().catch(() => {})
+      throw error
+    } finally {
+      tx.close()
+    }
+  })
+}
+
+/** `?, ?, ?` for an IN (...) list. */
+export const placeholders = (values: readonly unknown[]) => values.map(() => '?').join(', ')

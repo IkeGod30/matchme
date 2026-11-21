@@ -14,7 +14,7 @@ import {
 import { all, get, run, transaction } from '../db.ts'
 import { matchmakerApplicationEmail, passwordChangedEmail, passwordResetEmail } from '../emails.ts'
 import { APP_URL, EMAIL, fail, optionalText, sha256, textList } from '../http.ts'
-import { sendEmail, type Email } from '../mailer.ts'
+import { sendEmailInBackground, type Email } from '../mailer.ts'
 
 /**
  * Sign-up, login, logout, password reset and matchmaker sign-up by invitation.
@@ -39,8 +39,8 @@ const REALM_ROLES: Record<Realm, Role> = { seeker: 'seeker', staff: 'matchmaker'
 const realmOf = (role: Role): Realm => (role === 'matchmaker' ? 'staff' : role)
 
 /** Emails are unique per realm: a seeker and a matchmaker account may share one. */
-const emailTaken = (email: string, role: Role) =>
-  !!get('SELECT 1 FROM users WHERE email = ? AND role = ?', email.trim().toLowerCase(), role)
+const emailTaken = async (email: string, role: Role) =>
+  !!(await get('SELECT 1 FROM users WHERE email = ? AND role = ?', email.trim().toLowerCase(), role))
 
 /** Seekers sign up freely. Matchmakers can only join through an invitation (below). */
 authRoutes.post('/signup', rateLimit, async (req, res) => {
@@ -50,10 +50,10 @@ authRoutes.post('/signup', rateLimit, async (req, res) => {
   if (agreeTerms !== true) {
     return fail(res, 400, 'Please confirm you’re 18 or over and agree to the terms and privacy policy.')
   }
-  if (emailTaken(email, 'seeker')) return fail(res, 409, 'An account with that email already exists. Try logging in.')
+  if (await emailTaken(email, 'seeker')) return fail(res, 409, 'An account with that email already exists. Try logging in.')
   const user = await createUser(email, password, 'seeker')
-  run('UPDATE users SET terms_accepted_at = ? WHERE id = ?', Date.now(), user.id)
-  startSession(req, res, user)
+  await run('UPDATE users SET terms_accepted_at = ? WHERE id = ?', Date.now(), user.id)
+  await startSession(req, res, user)
   res.status(201).json({ user })
 })
 
@@ -65,7 +65,7 @@ function realmRoutes(prefix: string, role: Role) {
   authRoutes.post(`${prefix}/login`, rateLimit, async (req, res) => {
     const { email, password } = req.body ?? {}
     if (typeof email !== 'string' || typeof password !== 'string') return fail(res, 400, 'Enter your email and password.')
-    const row = get<{ id: string; password_hash: string; suspended_at: number | null }>(
+    const row = await get<{ id: string; password_hash: string; suspended_at: number | null }>(
       'SELECT id, password_hash, suspended_at FROM users WHERE email = ? AND role = ?',
       email.trim().toLowerCase(),
       role,
@@ -76,12 +76,12 @@ function realmRoutes(prefix: string, role: Role) {
     // Only said after the right password, so it doesn't reveal which accounts exist.
     if (row.suspended_at !== null) return fail(res, 403, SUSPENDED)
     // Signing in to the backoffice signs the browser out of the public site first.
-    startSession(req, res, { id: row.id, role })
-    res.json({ user: userById(row.id) })
+    await startSession(req, res, { id: row.id, role })
+    res.json({ user: await userById(row.id) })
   })
 
-  authRoutes.post(`${prefix}/logout`, (req, res) => {
-    endSession(req, res, role)
+  authRoutes.post(`${prefix}/logout`, async (req, res) => {
+    await endSession(req, res, role)
     res.json({ ok: true })
   })
 
@@ -103,9 +103,9 @@ interface InviteRow {
   used_at: number | null
 }
 
-export function findInvite(token: unknown): InviteRow | undefined {
+export async function findInvite(token: unknown): Promise<InviteRow | undefined> {
   if (typeof token !== 'string' || !token) return undefined
-  const invite = get<InviteRow>('SELECT id, email, expires_at, used_at FROM invites WHERE token_hash = ?', sha256(token))
+  const invite = await get<InviteRow>('SELECT id, email, expires_at, used_at FROM invites WHERE token_hash = ?', sha256(token))
   return invite && !invite.used_at && invite.expires_at > Date.now() ? invite : undefined
 }
 
@@ -114,7 +114,7 @@ const MATCHMAKER_AGREEMENT =
 
 authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
   const { token, email, password, displayName, agreeConfidentiality } = req.body ?? {}
-  const invite = findInvite(token)
+  const invite = await findInvite(token)
   if (!invite) return fail(res, 400, 'This invitation has expired or has already been used. Ask your team for a new one.')
   const problem = validCredentials(email, password)
   if (problem) return fail(res, 400, problem)
@@ -125,15 +125,15 @@ authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
   if (typeof displayName !== 'string' || !displayName.trim() || displayName.trim().length > 60) {
     return fail(res, 400, 'Enter the name seekers will see (up to 60 characters).')
   }
-  if (emailTaken(email, 'matchmaker')) return fail(res, 409, 'A staff account with that email already exists.')
+  if (await emailTaken(email, 'matchmaker')) return fail(res, 409, 'A staff account with that email already exists.')
 
   const passwordHash = await hashPassword(password)
   const userId = randomUUID()
   const now = Date.now()
-  const ok = transaction(() => {
+  const ok = await transaction(async (tx) => {
     // Claim the invitation atomically so it can only be used once.
-    if (Number(run('UPDATE invites SET used_at = ? WHERE id = ? AND used_at IS NULL', now, invite.id).changes) !== 1) return false
-    run(
+    if ((await tx.run('UPDATE invites SET used_at = ? WHERE id = ? AND used_at IS NULL', now, invite.id)).changes !== 1) return false
+    await tx.run(
       'INSERT INTO users (id, email, password_hash, role, created_at, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)',
       userId,
       email.trim().toLowerCase(),
@@ -143,19 +143,19 @@ authRoutes.post('/signup-matchmaker', rateLimit, async (req, res) => {
       now,
     )
     // Invited by a teammate, so approved straight away.
-    run(
+    await tx.run(
       'INSERT INTO matchmakers (user_id, display_name, updated_at, approved_at) VALUES (?, ?, ?, ?)',
       userId,
       displayName.trim(),
       now,
       now,
     )
-    run('UPDATE invites SET used_by = ? WHERE id = ?', userId, invite.id)
+    await tx.run('UPDATE invites SET used_by = ? WHERE id = ?', userId, invite.id)
     return true
   })
   if (!ok) return fail(res, 400, 'This invitation has already been used.')
-  startSession(req, res, { id: userId, role: 'matchmaker' })
-  res.status(201).json({ user: userById(userId) })
+  await startSession(req, res, { id: userId, role: 'matchmaker' })
+  res.status(201).json({ user: await userById(userId) })
 })
 
 /* ---------- Matchmaker applications (public) ---------- */
@@ -176,15 +176,15 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
     return fail(res, 400, 'Tell us a little about your matchmaking experience (at least 30 characters).')
   }
   const langs = textList(languages, 'Languages', 10, 40)
-  if (emailTaken(email, 'matchmaker')) {
+  if (await emailTaken(email, 'matchmaker')) {
     return fail(res, 409, 'An application or matchmaker account with that email already exists.')
   }
 
   const userId = randomUUID()
   const now = Date.now()
   const passwordHash = await hashPassword(password)
-  transaction(() => {
-    run(
+  await transaction(async (tx) => {
+    await tx.run(
       'INSERT INTO users (id, email, password_hash, role, created_at, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)',
       userId,
       email.trim().toLowerCase(),
@@ -193,7 +193,7 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
       now,
       now,
     )
-    run(
+    await tx.run(
       `INSERT INTO matchmakers (user_id, display_name, bio, languages, application, updated_at, approved_at)
        VALUES (?, ?, ?, ?, ?, ?, NULL)`,
       userId,
@@ -206,11 +206,9 @@ authRoutes.post('/apply-matchmaker', rateLimit, async (req, res) => {
   })
 
   // Let the super users know there's an application to review.
-  const admins = all<{ email: string }>(`SELECT email FROM users WHERE role = 'admin' AND suspended_at IS NULL`)
+  const admins = await all<{ email: string }>(`SELECT email FROM users WHERE role = 'admin' AND suspended_at IS NULL`)
   for (const admin of admins) {
-    sendEmail(matchmakerApplicationEmail(admin.email, name, `${APP_URL}${REALM_PATHS.admin}`)).catch((error) =>
-      console.error('Could not send application email:', error),
-    )
+    sendEmailInBackground(matchmakerApplicationEmail(admin.email, name, `${APP_URL}${REALM_PATHS.admin}`), 'application')
   }
 
   // No session: the applicant is told the application is being processed, and hears by email.
@@ -227,35 +225,44 @@ const RESET_RESEND_MS = 2 * 60_000
  * Emails the user a one-time link to choose a new password, unless one was sent moments ago.
  * Used by "Forgot your password?" and by super users. Returns false if it was skipped.
  */
-export function sendPasswordReset(
+export async function sendPasswordReset(
   user: { id: string; email: string; role: Role },
   makeEmail: (to: string, link: string) => Email = passwordResetEmail,
-): boolean {
+): Promise<boolean> {
   const now = Date.now()
-  run('DELETE FROM password_resets WHERE user_id = ? AND (used_at IS NOT NULL OR expires_at < ?)', user.id, now)
-  const recent = get('SELECT 1 FROM password_resets WHERE user_id = ? AND expires_at > ?', user.id, now + RESET_TTL_MS - RESET_RESEND_MS)
-  if (recent) return false
   // The token only ever exists in the email; the database keeps its hash.
   const token = randomBytes(32).toString('base64url')
-  run('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha256(token), user.id, now + RESET_TTL_MS)
+  // Checked and created in one transaction, so two requests at once send one email, not two.
+  const created = await transaction(async (tx) => {
+    await tx.run('DELETE FROM password_resets WHERE user_id = ? AND (used_at IS NOT NULL OR expires_at < ?)', user.id, now)
+    const recent = await tx.get(
+      'SELECT 1 FROM password_resets WHERE user_id = ? AND expires_at > ?',
+      user.id,
+      now + RESET_TTL_MS - RESET_RESEND_MS,
+    )
+    if (recent) return false
+    await tx.run('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha256(token), user.id, now + RESET_TTL_MS)
+    return true
+  })
+  if (!created) return false
   // In the URL fragment, so the token isn't sent to servers or leaked in Referer headers. The
   // path takes them back to their own area of the site.
   const link = `${APP_URL}${REALM_PATHS[user.role]}#reset=${token}`
-  sendEmail(makeEmail(user.email, link)).catch((error) => console.error('Could not send password reset email:', error))
+  sendEmailInBackground(makeEmail(user.email, link), 'password reset')
   return true
 }
 
-authRoutes.post('/forgot', rateLimit, (req, res) => {
+authRoutes.post('/forgot', rateLimit, async (req, res) => {
   const { email, realm } = req.body ?? {}
   if (typeof email !== 'string' || !EMAIL.test(email.trim())) return fail(res, 400, 'Enter a valid email address.')
   // Resets are per realm too: the staff form only ever resets a staff account.
   const role = REALM_ROLES[realm as Realm] ?? 'seeker'
-  const user = get<{ id: string; email: string }>(
+  const user = await get<{ id: string; email: string }>(
     'SELECT id, email FROM users WHERE email = ? AND role = ? AND suspended_at IS NULL',
     email.trim().toLowerCase(),
     role,
   )
-  if (user) sendPasswordReset({ ...user, role })
+  if (user) await sendPasswordReset({ ...user, role })
   // Same answer whether or not the account exists, so this can't be used to discover members.
   res.json({ ok: true })
 })
@@ -265,30 +272,30 @@ authRoutes.post('/reset', rateLimit, async (req, res) => {
   if (typeof token !== 'string' || !token) return fail(res, 400, 'This reset link is invalid.')
   if (typeof password !== 'string' || password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
   const tokenHash = sha256(token)
-  const reset = get<{ user_id: string; expires_at: number; used_at: number | null }>(
+  const reset = await get<{ user_id: string; expires_at: number; used_at: number | null }>(
     'SELECT user_id, expires_at, used_at FROM password_resets WHERE token_hash = ?',
     tokenHash,
   )
   const expired = 'This reset link has expired or has already been used. Please request a new one.'
   if (!reset || reset.used_at || reset.expires_at < Date.now()) return fail(res, 400, expired)
-  if (get('SELECT 1 FROM users WHERE id = ? AND suspended_at IS NOT NULL', reset.user_id)) return fail(res, 403, SUSPENDED)
+  if (await get('SELECT 1 FROM users WHERE id = ? AND suspended_at IS NOT NULL', reset.user_id)) return fail(res, 403, SUSPENDED)
 
   const passwordHash = await hashPassword(password)
-  const ok = transaction(() => {
+  const ok = await transaction(async (tx) => {
     // Claim the token atomically so it can only ever be used once.
-    const claimed = run('UPDATE password_resets SET used_at = ? WHERE token_hash = ? AND used_at IS NULL', Date.now(), tokenHash)
-    if (Number(claimed.changes) !== 1) return false
-    run('UPDATE users SET password_hash = ? WHERE id = ?', passwordHash, reset.user_id)
+    const claimed = await tx.run('UPDATE password_resets SET used_at = ? WHERE token_hash = ? AND used_at IS NULL', Date.now(), tokenHash)
+    if (claimed.changes !== 1) return false
+    await tx.run('UPDATE users SET password_hash = ? WHERE id = ?', passwordHash, reset.user_id)
     // Invalidate any other outstanding links and sign out every existing session.
-    run('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', Date.now(), reset.user_id)
-    run('DELETE FROM sessions WHERE user_id = ?', reset.user_id)
+    await tx.run('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', Date.now(), reset.user_id)
+    await tx.run('DELETE FROM sessions WHERE user_id = ?', reset.user_id)
     return true
   })
   if (!ok) return fail(res, 400, expired)
 
   // Signs in to the realm the account belongs to.
-  const user = userById(reset.user_id)!
-  startSession(req, res, user)
-  sendEmail(passwordChangedEmail(user.email)).catch((error) => console.error('Could not send password changed email:', error))
+  const user = (await userById(reset.user_id))!
+  await startSession(req, res, user)
+  sendEmailInBackground(passwordChangedEmail(user.email), 'password changed')
   res.json({ user, realm: realmOf(user.role) })
 })

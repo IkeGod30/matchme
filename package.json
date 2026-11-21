@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22.18"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c magenta,cyan \"npm:dev:api\" \"npm:dev:web\"",
@@ -12,12 +12,23 @@
     "dev:api": "node --disable-warning=ExperimentalWarning --watch server/index.ts",
     "seed": "node --disable-warning=ExperimentalWarning server/seed.ts",
     "create-admin": "node --disable-warning=ExperimentalWarning server/create-admin.ts",
+    "migrate": "node --disable-warning=ExperimentalWarning server/migrate-cli.ts",
+    "manifest": "node --disable-warning=ExperimentalWarning scripts/manifest.ts",
+    "verify-migration": "node --disable-warning=ExperimentalWarning scripts/verify-migration.ts",
+    "copy-db": "node --disable-warning=ExperimentalWarning scripts/copy-db.ts",
+    "import-photos": "node --disable-warning=ExperimentalWarning scripts/import-photos.ts",
+    "backup-local": "node --disable-warning=ExperimentalWarning scripts/backup-local.ts",
+    "race-test": "node --disable-warning=ExperimentalWarning scripts/race-test.ts",
     "build": "tsc -b && vite build",
+    "vercel-build": "npm run migrate && npm run build && node --disable-warning=ExperimentalWarning scripts/build-vercel.ts",
     "start": "node --disable-warning=ExperimentalWarning server/index.ts --serve-dist",
-    "lint": "oxlint",
+    "lint": "oxlint --type-aware",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "@vercel/blob": "^2.9.0",
+    "@vercel/functions": "^3.11.3",
     "express": "^5.3.0",
     "nodemailer": "^10.2.1",
     "react": "^19.3.1",
@@ -31,7 +42,9 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
+    "esbuild": "^0.28.2",
     "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2007",
     "typescript": "~6.0.3",
     "vite": "^8.3.4"
   }
