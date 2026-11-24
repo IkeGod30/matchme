@@ -20,9 +20,11 @@ they are, and every other path (`/`, `/matchmaker`, `/admin`, …) gets the app'
 
 ### Data scripts
 
-All of them use the local database unless `--target staging` / `--target production` is added,
-which loads `.env.staging` / `.env.production` (copy `.env.example`; both are git-ignored).
-Note the `--` before the options.
+All of them use the local database unless `--target staging` / `--target production` is added.
+Then they read the settings downloaded from Vercel (`.env.staging` / `.env.production`) plus your
+own `.env.staging.local` / `.env.production.local` for values Vercel won't download — see
+**Settings for the local scripts** below. Each run starts by printing which database and Blob store
+it is using. Note the `--` before the options.
 
 | Command | What it does |
 |---|---|
@@ -62,9 +64,15 @@ Note the `--` before the options.
 3. Settings → **General → Node.js Version: 24.x**. Settings → **Functions → Region**: the one
    next to your Turso databases (default `iad1`).
 4. **Storage → Create → Blob**: name `matchmehub-prod`, access **Private**. Connect it to the
-   project for the **Production** environment only. Create a second private store,
-   `matchmehub-staging`, and connect it to **Preview** (and Development) only. Connecting adds
-   `BLOB_READ_WRITE_TOKEN` to those environments.
+   project with **Production** ticked only (Vercel ticks every environment by default — untick
+   Preview and Development). Then create `matchmehub-staging` (Private) and connect it with
+   **Preview** and **Development** only, no prefix. Connecting adds `BLOB_STORE_ID` to those
+   environments; deployments sign in to the store automatically.
+   - If Vercel says *"This project already uses BLOB_STORE_ID in Production or Preview. Set a
+     prefix"*, the prod store is still connected to Preview: Storage → `matchmehub-prod` →
+     Projects → edit (or disconnect and reconnect) so only Production is ticked, then try again.
+   - Check: Settings → Environment Variables, search `BLOB` — `BLOB_STORE_ID` is listed twice,
+     once for Production and once for Preview, with different values.
 5. Upgrade the team to **Pro** before launch: the free Hobby plan is for non-commercial use only.
 
 **Email (SMTP)**: create an account with Resend, Brevo or SendGrid, add your domain and the DNS
@@ -81,11 +89,38 @@ records it gives you (SPF/DKIM), and create SMTP credentials.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | from the email provider | same (or a test account) |
 | `CRON_SECRET` | a long random string | another one |
 
-`BLOB_READ_WRITE_TOKEN` was added when you connected the stores. **Don't** add `NODE_ENV`: Vercel
-sets it, and setting it to `production` yourself stops the build tools from being installed.
+Each variable needs two separate entries — one ticked for Production, one for Preview — never one
+entry ticked for both. Mark the tokens and passwords **Sensitive**. `BLOB_STORE_ID` was added when
+you connected the stores. **Don't** add `NODE_ENV`: Vercel sets it, and setting it to `production`
+yourself stops the build tools from being installed.
 
-**Local files**: copy `.env.example` to `.env.staging` and `.env.production` and fill in the
-Turso URL and token and the matching Blob token (Vercel → Storage → the store → `.env.local` tab).
+#### Settings for the local scripts
+
+The data scripts run on your PC, so they need the same settings. In a terminal in the project folder:
+
+1. Link the folder to the Vercel project (once): `npx vercel link` → log in → your team →
+   *Link to existing project?* **y** → the MatchMeHub project.
+2. Download the settings (again whenever they change, and when the Blob sign-in has expired):
+   ```powershell
+   npx vercel env pull .env.staging --environment=preview
+   npx vercel env pull .env.production --environment=production
+   ```
+   These files are rewritten on every download — don't edit them.
+3. Vercel doesn't download **Sensitive** values; it writes `[SENSITIVE]` instead (and says
+   *"Secret values cannot be pulled"*). Put the real values in your own files, which Vercel never
+   touches — `.env.staging.local` and `.env.production.local` in the project folder
+   (see [.env.example](.env.example)):
+   ```
+   TURSO_DATABASE_URL=libsql://matchmehub-staging-<your-org>.turso.io
+   TURSO_AUTH_TOKEN=<token from the Turso dashboard>
+   ```
+4. Check: `npm run migrate -- --target staging` first prints
+   `[staging] database matchmehub-staging-… · Blob store store_…`. If something is missing it says
+   what and where to put it.
+
+The downloaded `VERCEL_OIDC_TOKEN` is the scripts' sign-in to the Blob store and lasts about 12
+hours; when it has expired the scripts say so — run the `env pull` command again. All these
+files are git-ignored; never share them.
 
 ### Phase 2 — Staging rehearsal (with a copy of the real data)
 

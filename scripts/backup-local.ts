@@ -57,7 +57,7 @@ mkdirSync(path.dirname(baseline), { recursive: true })
 const manifest = spawnSync(
   process.execPath,
   ['--disable-warning=ExperimentalWarning', path.join(root, 'scripts', 'manifest.ts'), '--out', baseline],
-  { env: { ...process.env, MATCHMEHUB_DATA_DIR: backup, TURSO_DATABASE_URL: '', BLOB_READ_WRITE_TOKEN: '' }, stdio: 'inherit' },
+  { env: { ...process.env, MATCHMEHUB_DATA_DIR: backup, TURSO_DATABASE_URL: '', BLOB_STORE_ID: '', BLOB_READ_WRITE_TOKEN: '', VERCEL_OIDC_TOKEN: '' }, stdio: 'inherit' },
 )
 if (manifest.status !== 0) process.exit(manifest.status ?? 1)
 

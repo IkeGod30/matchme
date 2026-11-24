@@ -8,8 +8,9 @@ import type { Request, Response } from 'express'
 import { UPLOAD_DIR } from './db-paths.ts'
 import { get } from './db.ts'
 
-// Photos are stored in Vercel Blob (a private store) when BLOB_READ_WRITE_TOKEN is set, otherwise
-// in server/data/uploads/ for local development. Either way the database keeps only the file
+// Photos are stored in Vercel Blob (a private store) when a store is configured — BLOB_STORE_ID,
+// which Vercel adds when the store is connected (it signs in with the deployment's OIDC token), or
+// a BLOB_READ_WRITE_TOKEN — otherwise in server/data/uploads/ for local development. Either way the database keeps only the file
 // name, and photos are only ever served through the access-checked /api routes.
 
 const DATA_URL = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/
@@ -17,9 +18,9 @@ const MAX_BYTES = 2 * 1024 * 1024
 
 export class BadRequest extends Error {}
 
-export const usesBlobStorage = !!process.env.BLOB_READ_WRITE_TOKEN?.trim()
+export const usesBlobStorage = !!(process.env.BLOB_STORE_ID?.trim() || process.env.BLOB_READ_WRITE_TOKEN?.trim())
 if (!usesBlobStorage && process.env.VERCEL) {
-  throw new Error('BLOB_READ_WRITE_TOKEN is not set. Connect a private Blob store to the Vercel project.')
+  throw new Error('No Blob store configured (BLOB_STORE_ID). Connect a private Blob store to this Vercel environment.')
 }
 
 /** Where a photo lives in the Blob store. The database value (file name) stays the same. */

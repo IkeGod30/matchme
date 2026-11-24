@@ -4,7 +4,7 @@ import path from 'node:path'
 /**
  * Local development keeps the database file and uploaded photos here (git-ignored). Override with
  * MATCHMEHUB_DATA_DIR (MATCHME_DATA_DIR, from before the rename to MatchMeHub, still works).
- * In production (TURSO_DATABASE_URL / BLOB_READ_WRITE_TOKEN set) neither is used.
+ * In production (TURSO_DATABASE_URL and BLOB_STORE_ID set) neither is used.
  */
 export const DATA_DIR =
   process.env.MATCHMEHUB_DATA_DIR ?? process.env.MATCHME_DATA_DIR ?? path.resolve(import.meta.dirname, 'data')

@@ -21,7 +21,7 @@ const { storePhoto, usesBlobStorage, blobPathname } = await import('../server/ph
 const { UPLOAD_DIR } = await import('../server/db-paths.ts')
 
 if (!usesBlobStorage) {
-  console.error('BLOB_READ_WRITE_TOKEN is not set: add --target staging (or production) with the token in that .env file.')
+  console.error('No Blob store configured: add --target staging (or --target production).')
   process.exit(1)
 }
 
