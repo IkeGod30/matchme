@@ -20,9 +20,9 @@ export const LEGAL = {
   company: 'Zillion Services Ltd',
   /** Company registration number, with the state or country it's registered in, in brackets. */
   registration: '5766255 (New York)',
-  privacyEmail: 'privacy@matchmehub.com',
-  supportEmail: '[support@your-domain.com]',
-  safetyEmail: '[safety@your-domain.com]',
+  privacyEmail: 'policy@matchmehub.com',
+  supportEmail: 'policy@matchmehub.com',
+  safetyEmail: 'policy@matchmehub.com',
   /** Where the servers and backups are, e.g. "Amazon Web Services, Frankfurt (EU)". */
   hosting: '[HOSTING PROVIDER AND COUNTRY]',
   /** Who sends MatchMeHub's emails (the SMTP service in server/mailer.ts). */
