@@ -482,8 +482,6 @@ function App() {
             onStart={startAsSeeker}
             onLogin={seeker ? undefined : () => show('login')}
             onFeatured={() => show('featured')}
-            onJoin={seeker ? undefined : () => show('join')}
-            onMatchmakerLogin={() => void enterBackoffice()}
           />
         )}
 

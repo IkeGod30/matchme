@@ -915,12 +915,6 @@
   color: var(--accent);
 }
 
-/* Backoffice entry: present for staff, quiet for everyone else. */
-.landing-footer .staff-link {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
 @media (max-width: 900px) {
   .landing-hero,
   .pay-section,

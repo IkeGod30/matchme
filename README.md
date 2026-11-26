@@ -19,8 +19,9 @@ once a match is mutual.
   open request that isn't matched yet (or opens one) and shown to the matchmaker at the top of the
   candidate list. Screens: `src/components/seeker/`,
   API: `server/routes/seeker.ts`.
-- **Matchmakers** are back-office staff. They either apply publicly (footer → Become a matchmaker,
-  `/#join` — hidden from signed-in seekers, who are shown the home page instead) or are invited by
+- **Matchmakers** are back-office staff. They either apply on the recruitment page (`/#join`, not
+  linked from the site — send applicants the address; hidden from signed-in seekers, who are shown
+  the home page instead) or are invited by
   an existing matchmaker. Applying doesn't sign anyone in: the applicant sees a "we've received your
   application" page, and a super user approves or declines it; either way the applicant is emailed.
   Invited matchmakers are approved immediately. Matchmakers take on requests, propose matches, keep
@@ -32,8 +33,8 @@ once a match is mutual.
   Screens: `src/components/admin/`, API: `server/routes/admin.ts`.
 
 The public site (landing, header, log-in / sign-up) is written for seekers. Matchmakers work in
-the **backoffice** at `/matchmaker` (footer → Matchmaker log in; old `/#staff` links redirect
-there), which has its own header, as does `/admin`.
+the **backoffice** at `/matchmaker` (not linked from the site — matchmakers bookmark it; old
+`/#staff` links redirect there), which has its own header, as does `/admin`.
 
 Each is a **separate authentication realm**:
 

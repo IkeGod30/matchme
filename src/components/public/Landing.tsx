@@ -153,15 +153,11 @@ interface PageProps {
   onFeatured: () => void
 }
 
-interface LandingProps extends PageProps {
-  /** Matchmaker recruitment — a quiet footer link, like a Careers page. Hidden for signed-in seekers. */
-  onJoin?: () => void
-  /** Matchmaker log-in (/matchmaker). The super-user area (/admin) is deliberately not linked. */
-  onMatchmakerLogin?: () => void
-}
-
-/** The public home page, written for seekers. */
-export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatchmakerLogin }: LandingProps) {
+/**
+ * The public home page, written for seekers. Nothing on it links to the matchmaker areas:
+ * matchmakers log in at /matchmaker and applicants are sent /#join directly.
+ */
+export function Landing({ ctaLabel, onStart, onLogin }: PageProps) {
   const [demoSex, setDemoSex] = useState<FigureSex>('female')
   // The hanging tips sign sways once, the first time it scrolls into view.
   const tipsRef = useRef<HTMLDivElement>(null)
@@ -407,21 +403,6 @@ export function Landing({ ctaLabel, onStart, onLogin, onFeatured, onJoin, onMatc
       <footer className="landing-footer">
         <span>
           <span className="brand-mark" aria-hidden="true">♥</span> MatchMeHub
-        </span>
-        <span className="footer-links">
-          <button type="button" className="link-btn" onClick={onFeatured}>
-            See featured members
-          </button>
-          {onJoin && (
-            <button type="button" className="link-btn" onClick={onJoin}>
-              Become a matchmaker
-            </button>
-          )}
-          {onMatchmakerLogin && (
-            <button type="button" className="link-btn staff-link" onClick={onMatchmakerLogin}>
-              Matchmaker log in
-            </button>
-          )}
         </span>
       </footer>
     </div>
