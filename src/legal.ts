@@ -22,11 +22,9 @@ export const LEGAL = {
   address: '[REGISTERED ADDRESS]',
   /** Company registration number (e.g. CAC RC number in Nigeria, Companies House number in the UK). */
   registration: '[COMPANY REGISTRATION NUMBER]',
-  privacyEmail: '[privacy@your-domain.com]',
+  privacyEmail: 'privacy@matchmehub.com',
   supportEmail: '[support@your-domain.com]',
   safetyEmail: '[safety@your-domain.com]',
-  /** Data protection officer, if you have (or must appoint) one. */
-  dpo: '[DATA PROTECTION OFFICER NAME / CONTACT, or remove]',
   /** Where the servers and backups are, e.g. "Amazon Web Services, Frankfurt (EU)". */
   hosting: '[HOSTING PROVIDER AND COUNTRY]',
   /** Who sends MatchMeHub's emails (the SMTP service in server/mailer.ts). */

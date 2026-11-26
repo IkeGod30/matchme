@@ -47,7 +47,7 @@ function PrivacyPolicy() {
       <p>
         MatchMeHub is run by {LEGAL.company} ({LEGAL.registration}), {LEGAL.address} (“MatchMeHub”, “we”, “us”). We are
         responsible for (the “controller” of) the personal data described here. Questions or requests:{' '}
-        <Email to={LEGAL.privacyEmail} />. Data protection officer: {LEGAL.dpo}.
+        <Email to={LEGAL.privacyEmail} />.
       </p>
       <p>
         We follow the Nigeria Data Protection Act 2023, the EU and UK General Data Protection Regulation (GDPR) and,
