@@ -20,8 +20,8 @@ export const LEGAL = {
   company: 'Zillion Services Ltd',
   /** Registered address, including country. */
   address: '[REGISTERED ADDRESS]',
-  /** Company registration number (e.g. CAC RC number in Nigeria, Companies House number in the UK). */
-  registration: '[COMPANY REGISTRATION NUMBER]',
+  /** Company registration number, with the state or country it's registered in, in brackets. */
+  registration: '5766255 (New York)',
   privacyEmail: 'privacy@matchmehub.com',
   supportEmail: '[support@your-domain.com]',
   safetyEmail: '[safety@your-domain.com]',
