@@ -17,7 +17,7 @@ export const LEGAL = {
   /** Shows a "draft" banner on every legal page until the details below are filled in and reviewed. */
   draft: true,
   /** The legal entity that runs MatchMeHub and is responsible for members' data. */
-  company: '[COMPANY LEGAL NAME]',
+  company: 'Zillion Services Ltd',
   /** Registered address, including country. */
   address: '[REGISTERED ADDRESS]',
   /** Company registration number (e.g. CAC RC number in Nigeria, Companies House number in the UK). */
