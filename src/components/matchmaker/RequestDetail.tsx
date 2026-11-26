@@ -181,7 +181,7 @@ export function RequestDetail({ request, seeker, data, matchmaker }: RequestDeta
         <RequestSummary request={seeker.request} />
         <details>
           <summary>{seeker.name}'s own physical profile</summary>
-          <PhysicalSummary physical={seeker.physical} gender={seeker.gender} />
+          <PhysicalSummary physical={seeker.physical} gender={seeker.gender} photos={seeker.photos} name={seeker.name} />
         </details>
       </article>
 

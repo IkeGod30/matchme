@@ -117,7 +117,13 @@ export function CandidateCard({
 
       <details>
         <summary>{profile.name}'s physical profile</summary>
-        <PhysicalSummary physical={profile.physical} gender={profile.gender} met={bodyMet} />
+        <PhysicalSummary
+          physical={profile.physical}
+          gender={profile.gender}
+          met={bodyMet}
+          photos={profile.photos}
+          name={profile.name}
+        />
       </details>
 
       {children}

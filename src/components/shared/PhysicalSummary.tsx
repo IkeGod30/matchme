@@ -1,6 +1,7 @@
 import { SELF_FEATURES, figureFor, formatHeight, heightBand } from '../../data/attributes'
 import type { Gender, PhysicalProfile } from '../../types'
 import { FeatureImage } from './FeatureImage'
+import { PhotoGrid } from './PhotoGrid'
 
 interface PhysicalSummaryProps {
   physical: PhysicalProfile
@@ -8,10 +9,14 @@ interface PhysicalSummaryProps {
   gender: Gender
   /** Labels to highlight as matching someone's request. */
   met?: string[]
+  /** The member's photos, shown above their attributes. */
+  photos?: string[]
+  /** Whose photos they are, for screen readers. */
+  name?: string
 }
 
 /** Someone's bodily attributes with thumbnails; `met` highlights ones matching your request. */
-export function PhysicalSummary({ physical, gender, met }: PhysicalSummaryProps) {
+export function PhysicalSummary({ physical, gender, met, photos, name = 'this member' }: PhysicalSummaryProps) {
   const figure = figureFor([gender])
   const rows = [
     { key: 'height' as const, label: 'Height', art: heightBand(physical.heightCm), value: formatHeight(physical.heightCm) },
@@ -25,16 +30,19 @@ export function PhysicalSummary({ physical, gender, met }: PhysicalSummaryProps)
   ]
 
   return (
-    <dl className="traits">
-      {rows.map((row) => (
-        <div key={row.key} className="trait" data-met={met?.includes(row.label) || undefined}>
-          <FeatureImage feature={row.key} option={row.art} size={36} figure={figure} />
-          <div>
-            <dt>{row.label}</dt>
-            <dd>{row.value}</dd>
+    <>
+      {photos && <PhotoGrid photos={photos} name={name} />}
+      <dl className="traits">
+        {rows.map((row) => (
+          <div key={row.key} className="trait" data-met={met?.includes(row.label) || undefined}>
+            <FeatureImage feature={row.key} option={row.art} size={36} figure={figure} />
+            <div>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
           </div>
-        </div>
-      ))}
-    </dl>
+        ))}
+      </dl>
+    </>
   )
 }

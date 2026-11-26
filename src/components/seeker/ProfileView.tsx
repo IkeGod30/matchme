@@ -31,7 +31,7 @@ export function ProfileView({ profile, onEdit, onDelete }: { profile: Profile; o
           onChange={(publicListing) => actions.saveProfile({ ...profile, publicListing })}
         />
         <h3>My physical profile</h3>
-        <PhysicalSummary physical={profile.physical} gender={profile.gender} />
+        <PhysicalSummary physical={profile.physical} gender={profile.gender} photos={profile.photos} name="you" />
       </article>
 
       <article className="card">

@@ -138,7 +138,7 @@ function MemberDetail({ member, data, onOpenRequest }: { member: Profile; data: 
         </header>
         {member.bio && <p className="bio">{member.bio}</p>}
         <h3>Physical profile</h3>
-        <PhysicalSummary physical={member.physical} gender={member.gender} />
+        <PhysicalSummary physical={member.physical} gender={member.gender} photos={member.photos} name={member.name} />
       </article>
 
       <article className="card">
