@@ -40,5 +40,5 @@ export const LEGAL = {
   /** The law and courts that govern the terms. */
   governingLaw: '[GOVERNING LAW, e.g. the laws of the Federal Republic of Nigeria]',
   /** Date the current versions took effect. */
-  updated: '[DATE, e.g. 1 December 2026]',
+  updated: '25 November 2026',
 }
