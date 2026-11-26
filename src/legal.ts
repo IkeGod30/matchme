@@ -18,8 +18,6 @@ export const LEGAL = {
   draft: true,
   /** The legal entity that runs MatchMeHub and is responsible for members' data. */
   company: 'Zillion Services Ltd',
-  /** Registered address, including country. */
-  address: '[REGISTERED ADDRESS]',
   /** Company registration number, with the state or country it's registered in, in brackets. */
   registration: '5766255 (New York)',
   privacyEmail: 'privacy@matchmehub.com',

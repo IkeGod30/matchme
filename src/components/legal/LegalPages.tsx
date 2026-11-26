@@ -45,7 +45,7 @@ function PrivacyPolicy() {
     >
       <h2>1. Who we are</h2>
       <p>
-        MatchMeHub is run by {LEGAL.company}, company registration number {LEGAL.registration}, {LEGAL.address} (“MatchMeHub”, “we”, “us”). We are
+        MatchMeHub is run by {LEGAL.company}, company registration number {LEGAL.registration} (“MatchMeHub”, “we”, “us”). We are
         responsible for (the “controller” of) the personal data described here. Questions or requests:{' '}
         <Email to={LEGAL.privacyEmail} />.
       </p>
