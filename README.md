@@ -148,9 +148,8 @@ California.
   photos, gender preferences). Matchmakers accept the code of conduct when they apply or accept
   an invitation. The server refuses sign-ups without it and records the time in
   `users.terms_accepted_at`.
-- The company details, contact emails and dates are set in `src/legal.ts`. The hosting, email and
-  payment providers and the governing law there, and the refund policy in the terms, are still
-  `[BRACKETED]` placeholders.
+- The company details, contact emails, hosting, governing law and dates are set in
+  `src/legal.ts`; the refund policy is in the terms text.
 
 ## Before going live
 

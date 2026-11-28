@@ -73,8 +73,8 @@ function PrivacyPolicy() {
           asked to meet, your answers and comments, and notes your matchmaker writes about your request.
         </li>
         <li>
-          <strong>Payments:</strong> when you confirm a match, our payment provider ({LEGAL.paymentProvider})
-          processes your payment. We receive a confirmation and reference number, never your full card details.
+          <strong>Payments:</strong> when you confirm a match, our payment provider processes your
+          payment. We receive a confirmation and reference number, never your full card details.
         </li>
         <li>
           <strong>Matchmaker applicants:</strong> name, email, experience and languages.
@@ -148,7 +148,7 @@ function PrivacyPolicy() {
         </li>
         <li>
           <strong>Service providers</strong> who process data for us under contract and only on our instructions:
-          hosting ({LEGAL.hosting}), email ({LEGAL.emailProvider}) and payments ({LEGAL.paymentProvider}).
+          hosting ({LEGAL.hosting}), an email delivery provider and a payment provider.
         </li>
         <li>
           <strong>Authorities,</strong> when the law requires it or to protect someone’s safety.
@@ -256,9 +256,8 @@ function TermsOfUse() {
       <p>
         Creating an account, sending requests and reviewing proposals is free. You pay a fee of {formatFee()} only
         when a match is mutual — when you and the other person have both said yes — and you choose to confirm it.
-        The price is shown before you pay. [REFUND POLICY — e.g. “Because the fee pays for an introduction that has
-        already been arranged, it isn’t refundable once your matchmaker has shared contact details, except where the
-        law requires.”] Nothing in these terms affects your rights under consumer protection law.
+        The price is shown before you pay. Fees are non-refundable once your matchmaker has shared contact details,
+        except where the law requires. Nothing in these terms affects your rights under consumer protection law.
       </p>
 
       <h2>5. How you must behave</h2>

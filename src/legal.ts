@@ -10,8 +10,7 @@ export const LEGAL_PAGES: { kind: LegalPageKind; title: string }[] = [
 
 /**
  * Details used by the privacy policy, terms of use, cookie notice and safety pages
- * (src/components/legal/). Replace any remaining [BRACKETED] values, and have a lawyer in each
- * country you operate in review the pages.
+ * (src/components/legal/). Have a lawyer in each country you operate in review the pages.
  */
 export const LEGAL = {
   /** The legal entity that runs MatchMeHub and is responsible for members' data. */
@@ -21,18 +20,14 @@ export const LEGAL = {
   privacyEmail: 'policy@matchmehub.com',
   supportEmail: 'policy@matchmehub.com',
   safetyEmail: 'policy@matchmehub.com',
-  /** Where the servers and backups are, e.g. "Amazon Web Services, Frankfurt (EU)". */
-  hosting: '[HOSTING PROVIDER AND COUNTRY]',
-  /** Who sends MatchMeHub's emails (the SMTP service in server/mailer.ts). */
-  emailProvider: '[EMAIL PROVIDER, e.g. Brevo or SendGrid]',
-  /** Who takes card payments once real payments replace the placeholder. */
-  paymentProvider: '[PAYMENT PROVIDER, e.g. Paystack, Flutterwave or Stripe]',
+  /** Where the servers and backups are (Vercel hosts the app, Turso the database). */
+  hosting: 'Vercel and Turso, in the United States',
   /** How long deleted data can stay in backups before it's overwritten. */
   backupDays: 30,
   /** How long payment records are kept for tax and accounting law. */
   paymentRecordYears: 6,
   /** The law and courts that govern the terms. */
-  governingLaw: '[GOVERNING LAW, e.g. the laws of the Federal Republic of Nigeria]',
+  governingLaw: 'the laws of the State of New York',
   /** Date the current versions took effect. */
   updated: '25 November 2026',
 }
