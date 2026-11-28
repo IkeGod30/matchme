@@ -16,12 +16,6 @@ const Email = ({ to }: { to: string }) => <a href={`mailto:${to}`}>{to}</a>
 function LegalLayout({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   return (
     <article className="card legal-page">
-      {LEGAL.draft && (
-        <p className="legal-draft small" role="note">
-          <strong>Draft.</strong> Details in [brackets] still need filling in, and this notice should be reviewed by
-          a lawyer before MatchMeHub launches.
-        </p>
-      )}
       <h1>{title}</h1>
       <p className="muted small">Last updated: {LEGAL.updated}</p>
       <p className="legal-intro">{intro}</p>

@@ -273,14 +273,6 @@
   font-size: 1.05rem;
 }
 
-.legal-draft {
-  margin: 0 0 20px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px dashed var(--accent);
-  background: var(--accent-soft);
-}
-
 .legal-table-wrap {
   overflow-x: auto;
 }

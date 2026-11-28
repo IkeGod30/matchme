@@ -10,12 +10,10 @@ export const LEGAL_PAGES: { kind: LegalPageKind; title: string }[] = [
 
 /**
  * Details used by the privacy policy, terms of use, cookie notice and safety pages
- * (src/components/legal/). Replace every [BRACKETED] value before launch, have a lawyer in each
- * country you operate in review the pages, then set `draft` to false to remove the draft banner.
+ * (src/components/legal/). Replace any remaining [BRACKETED] values, and have a lawyer in each
+ * country you operate in review the pages.
  */
 export const LEGAL = {
-  /** Shows a "draft" banner on every legal page until the details below are filled in and reviewed. */
-  draft: true,
   /** The legal entity that runs MatchMeHub and is responsible for members' data. */
   company: 'Zillion Services Ltd',
   /** Company registration number, with the state or country it's registered in, in brackets. */
